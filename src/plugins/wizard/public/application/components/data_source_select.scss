@@ -1,0 +1,14 @@
+.wizPopoverWrapper {
+  overflow: "hidden";
+}
+
+.wizPopoverWrapper .euiPopover,
+.wizPopoverWrapper .euiPopover__anchor {
+  width: 100%;
+}
+
+.wizDatasource {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: snip;
+}

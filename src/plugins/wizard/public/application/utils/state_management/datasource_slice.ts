@@ -39,7 +39,8 @@ export const slice = createSlice({
   name: 'dataSource',
   initialState,
   reducers: {
-    setIndexPattern: (state, action: PayloadAction<IndexPattern>) => {
+    setDataSource: (state, action: PayloadAction<IndexPattern>) => {
+      // todo: difference between indexPattern and "Data Source" ?
       state.indexPattern = action.payload;
       state.visualizableFields = action.payload.fields.filter(isVisualizable);
     },
@@ -50,7 +51,7 @@ export const slice = createSlice({
 });
 
 export const { reducer } = slice;
-export const { setIndexPattern, setSearchField } = slice.actions;
+export const { setDataSource, setSearchField } = slice.actions;
 
 // TODO: Temporary validate function
 // Need to identify how to get fieldCounts to use the standard filter and group functions

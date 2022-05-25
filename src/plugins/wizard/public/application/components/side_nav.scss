@@ -2,17 +2,19 @@
 
 .wizSidenav {
   @include scrollNavParent(auto 1fr);
+
   grid-area: sideNav;
   border-right: $euiBorderThin;
 }
 
-.wizDatasourceSelector {
-  padding: $euiSize $euiSize 0 $euiSize;
-}
-
 .wizSidenavTabs {
   @include scrollNavParent(min-content 1fr);
-  &>[role="tabpanel"] {
+
+  & > [role="tabpanel"] {
     @include scrollNavParent;
   }
+}
+
+.wizDatasourceSelect {
+  padding: $euiSize $euiSize 0 $euiSize;
 }

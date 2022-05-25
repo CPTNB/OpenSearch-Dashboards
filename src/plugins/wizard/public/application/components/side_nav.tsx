@@ -12,6 +12,7 @@ import './side_nav.scss';
 import { useTypedDispatch, useTypedSelector } from '../utils/state_management';
 import { setIndexPattern } from '../utils/state_management/datasource_slice';
 import { useVisualizationType } from '../utils/use';
+import { DataSource, DataSourceSelect } from './data_source_select';
 
 export const SideNav = () => {
   const {
@@ -20,8 +21,8 @@ export const SideNav = () => {
       savedObjects: { client: savedObjectsClient },
     },
   } = useOpenSearchDashboards<WizardServices>();
-  const { IndexPatternSelect } = data.ui;
-  const { indexPattern } = useTypedSelector((state) => state.dataSource);
+  // const { IndexPatternSelect } = data.ui;
+  const { dataSource } = useTypedSelector((state) => state.dataSource);
   const dispatch = useTypedDispatch();
   const {
     contributions: { containers },
@@ -35,23 +36,20 @@ export const SideNav = () => {
 
   return (
     <section className="wizSidenav">
-      <div className="wizDatasourceSelector">
-        <EuiFormLabel>
-          {i18n.translate('wizard.nav.dataSource.selector.title', {
-            defaultMessage: 'Index Pattern',
-          })}
-        </EuiFormLabel>
-        <IndexPatternSelect
+      <div className="wizDatasourceSelect">
+        <DataSourceSelect
           savedObjectsClient={savedObjectsClient}
-          placeholder={i18n.translate('wizard.nav.dataSource.selector.placeholder', {
-            defaultMessage: 'Select index pattern',
-          })}
-          indexPatternId={indexPattern?.id || ''}
-          onChange={async (newIndexPatternId: any) => {
-            const newIndexPattern = await data.indexPatterns.get(newIndexPatternId);
-            dispatch(setIndexPattern(newIndexPattern));
+          // todo: remove the or
+          selected={
+            dataSource || {
+              id:
+                'this_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_source',
+            }
+          }
+          onSelect={async (newDataSource: DataSource) => {
+            // const newIndexPattern = await data.indexPatterns.get(newIndexPatternId);
+            dispatch(setDataSource(newDataSource));
           }}
-          isClearable={false}
         />
       </div>
       <EuiTabbedContent tabs={tabs} className="wizSidenavTabs" />
