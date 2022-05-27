@@ -1,0 +1,37 @@
+@import "../variables";
+
+$outerWidth: 340px;
+$paddingWidth: 36px;
+$buttonLineHeight: 37px;
+
+.searchableDropdown {
+  overflow: "hidden";
+}
+
+.searchableDropdown .euiPopover,
+.searchableDropdown .euiPopover__anchor {
+  width: 100%;
+}
+
+.searchableDropdown--fixedWidthChild {
+  width: $outerWidth - $paddingWidth;
+}
+
+.searchableDropdown--topDisplay {
+  width: 100%;
+  //padding-left: $osdDropdownPadding;
+  //padding-top: $osdDropdownPadding;
+  //padding-bottom: $osdDropdownPadding;
+  padding-right: $paddingWidth;
+  line-height: $buttonLineHeight;
+}
+
+.searchableDropdown--topDisplay span {
+  width: 100%;
+  text-align: left;
+}
+
+.searchableDropdown--selectableWrapper .euiSelectableList {
+  box-shadow: none !important;
+  margin: $osdDropdownNegativePadding - 4;
+ }

@@ -12,7 +12,8 @@ import './side_nav.scss';
 import { useTypedDispatch, useTypedSelector } from '../utils/state_management';
 import { setIndexPattern } from '../utils/state_management/datasource_slice';
 import { useVisualizationType } from '../utils/use';
-import { DataSource, DataSourceSelect } from './data_source_select';
+import { DataSource } from './data_source';
+import { DataSourceSelect } from './data_source_select';
 
 export const SideNav = () => {
   const {
@@ -43,10 +44,10 @@ export const SideNav = () => {
           selected={
             dataSource || {
               id:
-                'this_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_sourcethis_is_a_data_source',
+                'data_source_two',
             }
           }
-          onSelect={async (newDataSource: DataSource) => {
+          onChange={async (newDataSource: DataSource) => {
             // const newIndexPattern = await data.indexPatterns.get(newIndexPatternId);
             dispatch(setDataSource(newDataSource));
           }}

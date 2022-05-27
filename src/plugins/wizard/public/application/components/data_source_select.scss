@@ -1,3 +1,6 @@
+@import "../variables";
+
+
 .wizPopoverWrapper {
   overflow: "hidden";
 }
@@ -11,4 +14,18 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: snip;
+}
+
+.wizDatasourceOptions {
+  margin: $osdDropdownNegativePadding;
+}
+
+.wizDatasourceOption {
+  border-top: $euiBorderThin;
+  padding-left: $osdDropdownPadding;
+  padding-right: $osdDropdownPadding;
+}
+
+.wizDatasourceOption:first-child {
+  border-top: none;
 }
