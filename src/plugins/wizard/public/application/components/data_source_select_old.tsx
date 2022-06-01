@@ -36,14 +36,18 @@ const DisplayError = ({ error }: { error: ErrorType }) => {
   return <EuiText color="danger">{error}</EuiText>;
 };
 
-const SelectListItem = ({children}: any) => {
-  return <button
-    type="button"
-    id="minor"
-    aria-selected="true"
-    role="option"
-    className="euiSelectableListItem  euiSuperSelect__item">{children}
-    </button>;
+const SelectListItem = ({ children }: any) => {
+  return (
+    <button
+      type="button"
+      id="minor"
+      aria-selected="true"
+      role="option"
+      className="euiSelectableListItem  euiSuperSelect__item"
+    >
+      {children}
+    </button>
+  );
 };
 
 export const DataSourceSelect = ({
@@ -92,15 +96,22 @@ export const DataSourceSelect = ({
 
   const dataSourceOptionsDisplay =
     loading || dataSources === undefined ? (
-      <center><EuiLoadingSpinner /></center>
+      <center>
+        <EuiLoadingSpinner />
+      </center>
     ) : error ? (
       <DisplayError error={error} />
     ) : (
-      <div className="wizDatasourceOptions euiSelectableList__list">{dataSources
-        .filter((source) => source.id.indexOf(searchText) > -1)
-        .map((source, i) => (
-          <SelectListItem key={i}> <DataSourceDisplay dataSource={source} /> </SelectListItem>
-        ))}</div>
+      <div className="wizDatasourceOptions euiSelectableList__list">
+        {dataSources
+          .filter((source) => source.id.indexOf(searchText) > -1)
+          .map((source, i) => (
+            <SelectListItem key={i}>
+              {' '}
+              <DataSourceDisplay dataSource={source} />{' '}
+            </SelectListItem>
+          ))}
+      </div>
     );
 
   const dataSourceDisplay = (

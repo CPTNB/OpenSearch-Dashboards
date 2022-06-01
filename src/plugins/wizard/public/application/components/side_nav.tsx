@@ -10,7 +10,7 @@ import { useOpenSearchDashboards } from '../../../../opensearch_dashboards_react
 import { WizardServices } from '../../types';
 import './side_nav.scss';
 import { useTypedDispatch, useTypedSelector } from '../utils/state_management';
-import { setIndexPattern } from '../utils/state_management/datasource_slice';
+import { setDataSource } from '../utils/state_management/datasource_slice';
 import { useVisualizationType } from '../utils/use';
 import { DataSource } from './data_source';
 import { DataSourceSelect } from './data_source_select';
@@ -43,13 +43,13 @@ export const SideNav = () => {
           // todo: remove the or
           selected={
             dataSource || {
-              id:
-                'data_source_two',
+              id: 'data_source_two',
             }
           }
-          onChange={async (newDataSource: DataSource) => {
+          onChange={(newDatasource: DataSource) => {
+            console.log(1);
             // const newIndexPattern = await data.indexPatterns.get(newIndexPatternId);
-            dispatch(setDataSource(newDataSource));
+            dispatch(setDataSource(newDatasource));
           }}
         />
       </div>
