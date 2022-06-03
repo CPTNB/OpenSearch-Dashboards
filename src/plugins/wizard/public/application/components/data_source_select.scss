@@ -1,31 +1,5 @@
 @import "../variables";
 
-
-.wizPopoverWrapper {
-  overflow: "hidden";
-}
-
-.wizPopoverWrapper .euiPopover,
-.wizPopoverWrapper .euiPopover__anchor {
-  width: 100%;
-}
-
-.wizDatasource {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: snip;
-}
-
-.wizDatasourceOptions {
-  margin: $osdDropdownNegativePadding;
-}
-
-.wizDatasourceOption {
-  border-top: $euiBorderThin;
-  padding-left: $osdDropdownPadding;
-  padding-right: $osdDropdownPadding;
-}
-
-.wizDatasourceOption:first-child {
-  border-top: none;
+.wizDatasourceSelect {
+   max-width: 469px;
 }

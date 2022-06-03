@@ -12,13 +12,13 @@ import { IndexPatternField, OSD_FIELD_TYPES } from '../../../../../data/public';
 const ALLOWED_FIELDS: string[] = [OSD_FIELD_TYPES.STRING, OSD_FIELD_TYPES.NUMBER];
 
 interface DataSourceState {
-  indexPattern: IndexPattern | null;
+  datasource: IndexPattern | null;
   visualizableFields: IndexPatternField[];
   searchField: string;
 }
 
 const initialState: DataSourceState = {
-  indexPattern: null,
+  datasource: null,
   visualizableFields: [],
   searchField: '',
 };
@@ -28,7 +28,7 @@ export const getPreloadedState = async ({ data }: WizardServices): Promise<DataS
 
   const defaultIndexPattern = await data.indexPatterns.getDefault();
   if (defaultIndexPattern) {
-    preloadedState.indexPattern = defaultIndexPattern;
+    preloadedState.datasource = defaultIndexPattern;
     preloadedState.visualizableFields = defaultIndexPattern.fields.filter(isVisualizable);
   }
 
@@ -41,7 +41,7 @@ export const slice = createSlice({
   reducers: {
     setDataSource: (state, action: PayloadAction<IndexPattern>) => {
       // todo: difference between indexPattern and "Data Source" ?
-      state.indexPattern = action.payload;
+      state.datasource = action.payload;
       state.visualizableFields = action.payload.fields.filter(isVisualizable);
     },
     setSearchField: (state, action: PayloadAction<string>) => {

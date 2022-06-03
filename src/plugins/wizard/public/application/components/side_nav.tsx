@@ -19,11 +19,10 @@ export const SideNav = () => {
   const {
     services: {
       data,
-      savedObjects: { client: savedObjectsClient },
     },
   } = useOpenSearchDashboards<WizardServices>();
   // const { IndexPatternSelect } = data.ui;
-  const { dataSource } = useTypedSelector((state) => state.dataSource);
+  const { datasource } = useTypedSelector((state) => state.dataSource);
   const dispatch = useTypedDispatch();
   const {
     contributions: { containers },
@@ -39,15 +38,8 @@ export const SideNav = () => {
     <section className="wizSidenav">
       <div className="wizDatasourceSelect">
         <DataSourceSelect
-          savedObjectsClient={savedObjectsClient}
-          // todo: remove the or
-          selected={
-            dataSource || {
-              id: 'data_source_two',
-            }
-          }
+          selected={datasource}
           onChange={(newDatasource: DataSource) => {
-            console.log(1);
             // const newIndexPattern = await data.indexPatterns.get(newIndexPatternId);
             dispatch(setDataSource(newDatasource));
           }}
