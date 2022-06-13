@@ -1,16 +1,15 @@
 @import "../variables";
 
-// todo: derive this from context
 // This is the width of the button side of the selector to the right of the prepend label
 // We need this value to match the width of the popover to the button
 $outerWidth: 340px;
 
-//todo: maybe this is a variable somewhere
+// todo: maybe this is a variable somewhere
 // this is the "width" of the down arrow on the right of the button
 // since this is a value related to a constant icon, I think its OK to leave hard-coded
 $paddingWidth: 36px;
 
-//todo: probably can get this from a variable somewhere
+// todo: probably can get this from a variable somewhere
 $buttonLineHeight: 37px;
 
 .searchableDropdown {
@@ -42,4 +41,4 @@ $buttonLineHeight: 37px;
   // This turns that off
   box-shadow: none !important;
   margin: $osdDropdownNegativePadding - 4;
- }
+}

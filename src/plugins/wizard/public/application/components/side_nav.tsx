@@ -4,26 +4,18 @@
  */
 
 import React from 'react';
-import { i18n } from '@osd/i18n';
-import { EuiFormLabel, EuiTabbedContent, EuiTabbedContentTab } from '@elastic/eui';
-import { useOpenSearchDashboards } from '../../../../opensearch_dashboards_react/public';
-import { WizardServices } from '../../types';
+import { EuiTabbedContent, EuiTabbedContentTab } from '@elastic/eui';
 import './side_nav.scss';
 import { useTypedDispatch, useTypedSelector } from '../utils/state_management';
-import { setDataSource } from '../utils/state_management/datasource_slice';
+import { setDataSourceId } from '../utils/state_management/datasource_slice';
 import { useVisualizationType } from '../utils/use';
-import { DataSource } from './data_source';
+import { DataSource } from '../../types';
 import { DataSourceSelect } from './data_source_select';
 
 export const SideNav = () => {
-  const {
-    services: {
-      data,
-    },
-  } = useOpenSearchDashboards<WizardServices>();
-  // const { IndexPatternSelect } = data.ui;
-  const { datasource } = useTypedSelector((state) => state.dataSource);
+  const { dataSource, dataSources } = useTypedSelector((state) => state.dataSource);
   const dispatch = useTypedDispatch();
+
   const {
     contributions: { containers },
   } = useVisualizationType();
@@ -38,10 +30,12 @@ export const SideNav = () => {
     <section className="wizSidenav">
       <div className="wizDatasourceSelect">
         <DataSourceSelect
-          selected={datasource}
-          onChange={(newDatasource: DataSource) => {
-            // const newIndexPattern = await data.indexPatterns.get(newIndexPatternId);
-            dispatch(setDataSource(newDatasource));
+          selected={dataSource}
+          dataSources={dataSources}
+          onChange={(newDataSource?: DataSource) => {
+            if (newDataSource !== undefined) {
+              dispatch(setDataSourceId(newDataSource.id));
+            }
           }}
         />
       </div>

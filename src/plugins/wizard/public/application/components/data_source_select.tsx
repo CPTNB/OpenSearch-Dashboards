@@ -3,63 +3,49 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { i18n } from '@osd/i18n';
-import { SearchableDropdown } from './searchable_dropdown';
-import { DataSource, loadDataSources, toSearchableDropdownOption, equality } from './data_source';
-import { useOpenSearchDashboards } from '../../../../opensearch_dashboards_react/public';
+import { EuiIcon } from '@elastic/eui';
+import { SearchableDropdown, SearchableDropdownOption } from './searchable_dropdown';
+import { DataSource, DataSourceType } from '../../types';
 import './data_source_select.scss';
+import indexPatternSvg from '../../assets/index_pattern.svg';
 
-interface DataSourceSelectProps {
-  onChange: (datasource: DataSource) => void;
-  selected: DataSource;
+function iconForType(type: DataSourceType) {
+  return <EuiIcon type={indexPatternSvg} />;
 }
 
-export const DataSourceSelect = ({ selected, onChange }: DataSourceSelectProps) => {
-  const {
-    services: {
-      savedObjects: { client: savedObjectsClient }
-    },
-  } = useOpenSearchDashboards<WizardServices>();
+function sourceEquality(A?: SearchableDropdownOption, B?: SearchableDropdownOption): boolean {
+  return !A || !B ? false : A.id === B.id;
+}
 
-  const [sourcesPromise, setSourcesPromise] = useState<Promise<DataSource[]>>(new Promise((res, rej) => {}));
-  const [loaded, setLoaded] = useState(false);
-  const [sourcesMap, setSourcesMap] = useState<{ [key:string]: DataSource }>({});
-  const [selectedSource, setSelectedSource] = useState<DataSource|undefined>(undefined);
+function toSearchableDropdownOption(dataSource: DataSource): SearchableDropdownOption {
+  return {
+    id: dataSource.id,
+    label: dataSource.title,
+    searchableLabel: dataSource.title,
+    prepend: iconForType(dataSource.type),
+  };
+}
 
-  useEffect(() => {
-    if (!loaded) {
-      setLoaded(true);
-      setSourcesPromise(
-        loadDataSources().then((sources) => {
-          setSourcesMap((sources || []).reduce((map, next) => Object.assign(map, { [next.id]: next }), {}));
-          return sources;
-        })
-      );
-    }
-  }, [selected, loaded]);
+interface DataSourceSelectProps {
+  onChange: (dataSource?: DataSource) => void;
+  selected?: DataSource;
+  dataSources: DataSource[];
+}
 
-  useEffect(() => {
-    if (selected !== undefined) {
-      setSelectedSource(sourcesMap[selected.id]);  
-    }
-  }, [sourcesMap, selected]);
-
-  function mapSourceOptionToSource (option?: { id: string }): DataSource|undefined {
-    return option === undefined
-      ? undefined
-      :  sourcesMap[option.id];
-  }
-
+export const DataSourceSelect = ({ selected, onChange, dataSources }: DataSourceSelectProps) => {
   return (
     <SearchableDropdown
-      selected={toSearchableDropdownOption(selectedSource)}
-      onChange={option => onChange(mapSourceOptionToSource(option))}
+      selected={selected !== undefined ? toSearchableDropdownOption(selected) : undefined}
+      onChange={(option) => onChange(dataSources.filter((s) => s.id === (option || {}).id)[0])}
       prepend={i18n.translate('wizard.nav.dataSource.selector.title', {
         defaultMessage: 'Data Source',
       })}
-      options={sourcesPromise.then(sources => sources.map(toSearchableDropdownOption))}
-      equality={equality}
+      options={Promise.resolve(dataSources).then((sources) =>
+        sources.filter((source) => source !== undefined).map(toSearchableDropdownOption)
+      )}
+      equality={sourceEquality}
     />
   );
 };

@@ -10,19 +10,20 @@ import {
   EuiPopoverTitle,
   EuiButtonEmpty,
   EuiPopover,
-  EuiHighlight,
   EuiSelectable,
-  EuiSpacer
+  EuiTextColor,
 } from '@elastic/eui';
 import './searchable_dropdown.scss';
 
 export interface SearchableDropdownOption {
+  id: string;
   label: string;
   searchableLabel: string;
   prepend: any;
 }
 
 interface SearchableDropdownProps {
+  selected?: SearchableDropdownOption;
   onChange: (selection) => void;
   options: Promise<SearchableDropdownOption[]>;
   prepend: string;
@@ -42,26 +43,26 @@ export const SearchableDropdown = ({
   options,
   prepend,
 }: SearchableDropdownProps) => {
-  const [localOptions, setLocalOptions] = useState(undefined);
+  const [localOptions, setLocalOptions] = useState<any[] | undefined>(undefined);
   const [error, setError] = useState(undefined);
   const [loading, setLoading] = useState<boolean>(true);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const onButtonClick = () => setIsPopoverOpen(!isPopoverOpen);
   const closePopover = () => setIsPopoverOpen(false);
 
-  function check(selected: any, options: any[]) {
-    return options.map((o) => ({
-      ...o,
-      checked: equality(o, selected) ? 'on' : undefined,
-    }));
-  }
+  // function check(newSelected: any, localOptions: any[]) {
+  //   return localOptions.map((o) => ({
+  //     ...o,
+  //     checked: equality(o, newSelected) ? 'on' : undefined,
+  //   }));
+  // }
 
-  function selectNewOption(newOptions) {    
-    //alright, the EUI Selectable is pretty ratchet
+  function selectNewOption(newOptions) {
+    // alright, the EUI Selectable is pretty ratchet
     // this is as smarmy as it is because it needs to be
 
     // first go through and count all the "checked" options
-    let selectedCount = newOptions.filter(o => o.checked === 'on').length;
+    const selectedCount = newOptions.filter((o) => o.checked === 'on').length;
 
     // if the count is 0, the user just "unchecked" our selection and we can just do nothing
     if (selectedCount === 0) {
@@ -77,7 +78,7 @@ export const SearchableDropdown = ({
     }
 
     // finally, we can pick the checked option as the actual selection
-    const newSelection = newOptions.filter(o => o.checked === 'on')[0];
+    const newSelection = newOptions.filter((o) => o.checked === 'on')[0];
 
     setLocalOptions(newOptions);
     setIsPopoverOpen(false);
@@ -86,10 +87,17 @@ export const SearchableDropdown = ({
 
   useEffect(() => {
     options
-      .then((res) => setLocalOptions(check(selected, res)))
-      .catch((error) => setError(error))
+      .then((res) =>
+        setLocalOptions(
+          res.map((o) => ({
+            ...o,
+            checked: equality(o, selected) ? 'on' : undefined,
+          }))
+        )
+      )
+      .catch((e) => setError(e))
       .finally(() => setLoading(false));
-  }, [selected, options, loading]);
+  }, [selected, options, loading, equality]);
 
   const listDisplay = (list, search) =>
     loading ? (
@@ -123,13 +131,14 @@ export const SearchableDropdown = ({
     </div>
   );
 
-  const selectedText = selected === undefined
-    ? (loading ? 'Loading' : 'Select an option')
-    : <>
-      {selected.prepend}
-      {" "}
-      {selected.label}
-    </>
+  const selectedText =
+    selected === undefined ? (
+      <EuiTextColor color="subdued">{loading ? 'Loading' : 'Select an option'}</EuiTextColor>
+    ) : (
+      <>
+        {selected.prepend} {selected.label}
+      </>
+    );
 
   const selectedView = (
     <EuiButtonEmpty
@@ -137,7 +146,6 @@ export const SearchableDropdown = ({
       style={{ textAlign: 'left' }}
       className="searchableDropdown--topDisplay"
       onClick={onButtonClick}
-      
     >
       {selectedText}
     </EuiButtonEmpty>

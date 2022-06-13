@@ -51,6 +51,7 @@
     // import tslib helpers rather than inlining helpers for iteration or spreading, for instance
     "importHelpers": true,
     // adding global typings
+    "noImplicitAny": false,
     "types": [
       "node",
       "jest",

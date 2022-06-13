@@ -9,7 +9,7 @@ import { EmbeddableSetup } from 'src/plugins/embeddable/public';
 import { DashboardStart } from 'src/plugins/dashboard/public';
 import { VisualizationsSetup } from 'src/plugins/visualizations/public';
 import { NavigationPublicPluginStart } from '../../navigation/public';
-import { DataPublicPluginStart } from '../../data/public';
+import { DataPublicPluginStart, IndexPatternField } from '../../data/public';
 import { TypeServiceSetup, TypeServiceStart } from './services/type_service';
 
 export type WizardSetup = TypeServiceSetup;
@@ -32,4 +32,13 @@ export interface WizardServices extends CoreStart {
   navigation: NavigationPublicPluginStart;
   data: DataPublicPluginStart;
   types: TypeServiceStart;
+}
+
+export type DataSourceType = 'INDEX_PATTERN'; // todo: others: | 'SAVED_SEARCH';
+
+export interface DataSource {
+  id: string;
+  title: string;
+  type: DataSourceType;
+  fields: IndexPatternField[];
 }
