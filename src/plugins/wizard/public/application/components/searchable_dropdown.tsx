@@ -25,8 +25,12 @@ export interface SearchableDropdownOption {
 interface SearchableDropdownProps {
   selected?: SearchableDropdownOption;
   onChange: (selection) => void;
-  options: Promise<SearchableDropdownOption[]>;
+  options: SearchableDropdownOption[];
+  loading: boolean;
+  error?: Error;
   prepend: string;
+  // not just the first time!
+  onOpen?: () => void;
   equality: (A, B) => boolean;
 }
 
@@ -41,13 +45,19 @@ export const SearchableDropdown = ({
   equality,
   selected,
   options,
+  error,
+  loading,
   prepend,
+  onOpen,
 }: SearchableDropdownProps) => {
   const [localOptions, setLocalOptions] = useState<any[] | undefined>(undefined);
-  const [error, setError] = useState(undefined);
-  const [loading, setLoading] = useState<boolean>(true);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const onButtonClick = () => setIsPopoverOpen(!isPopoverOpen);
+  const onButtonClick = () => {
+    if (!isPopoverOpen && typeof onOpen === 'function') {
+      onOpen();
+    }
+    setIsPopoverOpen(!isPopoverOpen);
+  };
   const closePopover = () => setIsPopoverOpen(false);
 
   function selectNewOption(newOptions) {
@@ -62,6 +72,7 @@ export const SearchableDropdown = ({
       setIsPopoverOpen(false);
       return;
     }
+
     // then, if there's more than two selections, the Selectable left the previous selection as "checked"
     // so we need to go and "uncheck" it
     for (let i = 0; i < newOptions.length; i++) {
@@ -79,24 +90,19 @@ export const SearchableDropdown = ({
   }
 
   useEffect(() => {
-    options
-      .then((res) =>
-        setLocalOptions(
-          res.map((o) => ({
-            ...o,
-            checked: equality(o, selected) ? 'on' : undefined,
-          }))
-        )
-      )
-      .catch((e) => setError(e))
-      .finally(() => setLoading(false));
-  }, [selected, options, loading, equality]);
+    setLocalOptions(
+      options.map((o) => ({
+        ...o,
+        checked: equality(o, selected) ? 'on' : undefined,
+      }))
+    );
+  }, [selected, options, equality]);
 
   const listDisplay = (list, search) =>
     loading ? (
-      <center>
+      <div style={{ textAlign: 'center' }}>
         <EuiLoadingSpinner />
-      </center>
+      </div>
     ) : error !== undefined ? (
       displayError(error)
     ) : (

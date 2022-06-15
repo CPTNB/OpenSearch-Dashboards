@@ -7,45 +7,46 @@ import React from 'react';
 import { i18n } from '@osd/i18n';
 import { EuiIcon } from '@elastic/eui';
 import { SearchableDropdown, SearchableDropdownOption } from './searchable_dropdown';
-import { DataSource, DataSourceType } from '../../types';
+import { useIndexPatterns } from '../utils/use';
 import './data_source_select.scss';
 import indexPatternSvg from '../../assets/index_pattern.svg';
+import { useTypedDispatch } from '../utils/state_management';
+import { setIndexPattern } from '../utils/state_management/visualization_slice';
+import { IndexPattern } from '../../../../data/public';
 
-function iconForType(type: DataSourceType) {
-  return <EuiIcon type={indexPatternSvg} />;
-}
-
-function sourceEquality(A?: SearchableDropdownOption, B?: SearchableDropdownOption): boolean {
+function indexPatternEquality(A?: SearchableDropdownOption, B?: SearchableDropdownOption): boolean {
   return !A || !B ? false : A.id === B.id;
 }
 
-function toSearchableDropdownOption(dataSource: DataSource): SearchableDropdownOption {
+function toSearchableDropdownOption(indexPattern: IndexPattern): SearchableDropdownOption {
   return {
-    id: dataSource.id,
-    label: dataSource.title,
-    searchableLabel: dataSource.title,
-    prepend: iconForType(dataSource.type),
+    id: indexPattern.id || '',
+    label: indexPattern.title,
+    searchableLabel: indexPattern.title,
+    prepend: <EuiIcon type={indexPatternSvg} />,
   };
 }
+// src/plugins/data/common/index_patterns/index_patterns/index_pattern.ts
+export const DataSourceSelect = () => {
+  const { indexPatterns, loading, error, selected } = useIndexPatterns();
+  const dispatch = useTypedDispatch();
 
-interface DataSourceSelectProps {
-  onChange: (dataSource?: DataSource) => void;
-  selected?: DataSource;
-  dataSources: DataSource[];
-}
-
-export const DataSourceSelect = ({ selected, onChange, dataSources }: DataSourceSelectProps) => {
   return (
     <SearchableDropdown
       selected={selected !== undefined ? toSearchableDropdownOption(selected) : undefined}
-      onChange={(option) => onChange(dataSources.filter((s) => s.id === (option || {}).id)[0])}
+      onChange={(option) => {
+        const foundOption = indexPatterns.filter((s) => s.id === option.id)[0];
+        if (foundOption !== undefined && typeof foundOption.id === 'string') {
+          dispatch(setIndexPattern(foundOption.id));
+        }
+      }}
       prepend={i18n.translate('wizard.nav.dataSource.selector.title', {
         defaultMessage: 'Data Source',
       })}
-      options={Promise.resolve(dataSources).then((sources) =>
-        sources.filter((source) => source !== undefined).map(toSearchableDropdownOption)
-      )}
-      equality={sourceEquality}
+      error={error}
+      loading={loading}
+      options={indexPatterns.map(toSearchableDropdownOption)}
+      equality={indexPatternEquality}
     />
   );
 };

@@ -4,3 +4,4 @@
  */
 
 export { useVisualizationType } from './use_visualization_type';
+export { useIndexPattern, useIndexPatterns } from './use_index_pattern';
