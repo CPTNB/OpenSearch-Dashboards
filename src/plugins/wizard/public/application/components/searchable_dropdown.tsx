@@ -50,13 +50,6 @@ export const SearchableDropdown = ({
   const onButtonClick = () => setIsPopoverOpen(!isPopoverOpen);
   const closePopover = () => setIsPopoverOpen(false);
 
-  // function check(newSelected: any, localOptions: any[]) {
-  //   return localOptions.map((o) => ({
-  //     ...o,
-  //     checked: equality(o, newSelected) ? 'on' : undefined,
-  //   }));
-  // }
-
   function selectNewOption(newOptions) {
     // alright, the EUI Selectable is pretty ratchet
     // this is as smarmy as it is because it needs to be
