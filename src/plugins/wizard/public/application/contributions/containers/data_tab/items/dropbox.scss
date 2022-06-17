@@ -1,0 +1,56 @@
+.dropBox {
+  margin-top: $euiSize;
+  border-bottom: $euiBorderThin;
+  padding-bottom: $euiSize;
+
+  &:first-child {
+    margin-top: 0;
+  }
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__container {
+    display: grid;
+    grid-gap: $euiSizeXS;
+    padding: $euiSizeS;
+    background-color: #e9edf3;
+    border-radius: $euiBorderRadius;
+  }
+
+  &__field {
+    display: grid;
+    grid-template-columns: 1fr auto;
+
+    // grid-template-columns: auto 1fr auto;
+    grid-gap: $euiSizeS;
+    padding: $euiSizeS $euiSizeM;
+    align-items: center;
+  }
+
+  &__draggable {
+    padding: 2px 0;
+  }
+
+  &__field_text {
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  &__dropTarget {
+    color: $euiColorDarkShade;
+    grid-template-columns: 1fr auto;
+
+    &.validField {
+      background-color: #a8d9e7;
+      border-color: #a8d9e7;
+
+      &.canDrop {
+        background-color: rgba(0, 161, 201, 30%);
+        border-color: #006bb4;
+        border-style: dashed;
+      }
+    }
+  }
+}
