@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { i18n } from '@osd/i18n';
 import React, { useMemo } from 'react';
 import { PLUGIN_ID } from '../../../common';
 import { useOpenSearchDashboards } from '../../../../opensearch_dashboards_react/public';
@@ -16,6 +17,7 @@ export const TopNav = () => {
   const { services } = useOpenSearchDashboards<WizardServices>();
   const {
     setHeaderActionMenu,
+    chrome,
     navigation: {
       ui: { TopNavMenu },
     },
@@ -23,6 +25,20 @@ export const TopNav = () => {
 
   const config = useMemo(() => getTopNavconfig(services), [services]);
   const indexPattern = useIndexPattern();
+
+  chrome.setBreadcrumbs([
+    {
+      text: i18n.translate('visualize.listing.breadcrumb', {
+        defaultMessage: 'Visualize',
+      }),
+      href: `/`,
+    },
+    {
+      text: i18n.translate('wizard.nav.breadcrumb.create', {
+        defaultMessage: 'Create',
+      })
+    }
+  ]);
 
   return (
     <div className="wizTopNav">
