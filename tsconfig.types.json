@@ -11,8 +11,6 @@
   "include": [
     "src/core/server/index.ts",
     "src/core/public/index.ts",
-    "src/plugins/data/server/index.ts",
-    "src/plugins/data/public/index.ts",
     "typings"
   ]
 }

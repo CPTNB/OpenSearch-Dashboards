@@ -2,7 +2,7 @@ name: Doc Export
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "main-for-docs" ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -12,6 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: install node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 14.19.1
+      - name: generate api docs
+        run: |
+          yarn osd bootstrap
+          npm run build:types
+          mkdir etc
+          npx api-extractor run --local
+          npx api-documenter markdown -i temp
+          mv markdown/ apis/
+          mkdir generated/
+          cp -r apis/ generated/apis
       - name: extract readmes
         run: node scripts/extract_readmes.js
       - name: Pushes to another repository
@@ -19,9 +33,9 @@ jobs:
         env:
           SSH_DEPLOY_KEY: ${{ secrets.SSH_PUSH_DOC_REPO }}
         with:
-          source-directory: 'extracted_readmes'
+          source-directory: 'generated'
           destination-github-username: 'CPTNB'
           destination-repository-name: 'opensearch-dashboards-dev-docs'
           user-email: 'cptn@amazon.net'
           target-branch: main
-          target-directory: 'upstream_readmes'
+          target-directory: 'docs/source'

@@ -6,7 +6,7 @@
 const { readdir, copyFile, mkdir } = require('fs/promises');
 const { resolve, relative, dirname } = require('path');
 const REPO_ROOT = resolve(__dirname, '../', '../');
-const DEST_FOLDER = resolve(REPO_ROOT, 'extracted_readmes');
+const DEST_FOLDER = resolve(REPO_ROOT, 'generated/readmes');
 const omitDirs = ['node_modules'];
 
 async function cp(from, to) {
