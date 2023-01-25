@@ -75,7 +75,12 @@ export default {
   coveragePathIgnorePatterns: ['/node_modules/', '.*\\.d\\.ts'],
   coverageReporters: ['lcov', 'text-summary'],
   moduleFileExtensions: ['js', 'mjs', 'json', 'ts', 'tsx', 'node'],
-  modulePathIgnorePatterns: ['__fixtures__/', 'target/', '<rootDir>/src/plugins/maps_legacy'],
+  modulePathIgnorePatterns: [
+    '__fixtures__/',
+    'target/',
+    '<rootDir>/src/plugins/maps_legacy',
+    '<rootDir>/src/cli_plugin/list/.test.data.list',
+  ],
   testEnvironment: 'jest-environment-jsdom',
   testMatch: ['**/*.test.{js,mjs,ts,tsx}'],
   testPathIgnorePatterns: [
@@ -91,9 +96,9 @@ export default {
     '^.+\\.html?$': 'jest-raw-loader',
   },
   transformIgnorePatterns: [
-    // ignore all node_modules except monaco-editor which requires babel transforms to handle dynamic import()
+    // ignore all node_modules except those which require babel transforms to handle dynamic import()
     // since ESM modules are not natively supported in Jest yet (https://github.com/facebook/jest/issues/4842)
-    '[/\\\\]node_modules(?![\\/\\\\](monaco-editor|weak-lru-cache|ordered-binary))[/\\\\].+\\.js$',
+    '[/\\\\]node_modules(?![\\/\\\\](monaco-editor|weak-lru-cache|ordered-binary|d3-color))[/\\\\].+\\.js$',
     'packages/osd-pm/dist/index.js',
   ],
   snapshotSerializers: [
@@ -104,4 +109,5 @@ export default {
   globals: {
     Uint8Array: Uint8Array,
   },
+  flakyTestRetries: 2,
 };

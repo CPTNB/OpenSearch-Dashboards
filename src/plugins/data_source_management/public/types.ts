@@ -42,19 +42,12 @@ export interface DataSourceTableItem {
 export interface ToastMessageItem {
   id: string;
   defaultMessage: string;
-  color: 'primary' | 'success' | 'warning' | 'danger';
-  iconType: string;
+  success?: boolean;
 }
 
 export type DataSourceManagementContextValue = OpenSearchDashboardsReactContextValue<
   DataSourceManagementContext
 >;
-
-export interface UpdatePasswordFormType {
-  oldPassword: string;
-  newPassword: string;
-  confirmNewPassword: string;
-}
 
 /* Datasource types */
 export enum AuthType {
@@ -63,8 +56,8 @@ export enum AuthType {
 }
 
 export const credentialSourceOptions = [
-  { value: AuthType.UsernamePasswordType, inputDisplay: 'Username & Password' },
-  { value: AuthType.NoAuth, inputDisplay: 'No authentication' },
+  { id: AuthType.NoAuth, label: 'No authentication' },
+  { id: AuthType.UsernamePasswordType, label: 'Username & Password' },
 ];
 
 export interface DataSourceAttributes extends SavedObjectAttributes {

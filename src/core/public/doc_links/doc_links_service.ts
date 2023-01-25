@@ -338,6 +338,8 @@ export class DocLinksService {
               close: `${OPENSEARCH_VERSIONED_DOCS}rest-api/index-apis/close-index/`,
             },
           },
+          // https://opensearch.org/docs/latest/opensearch/supported-field-types/date/#date-math
+          dateMath: `${OPENSEARCH_VERSIONED_DOCS}supported-field-types/date/#date-math`,
         },
         opensearchDashboards: {
           // https://opensearch.org/docs/latest/dashboards/index/
@@ -386,6 +388,7 @@ export class DocLinksService {
             // https://opensearch.org/docs/latest/dashboards/dql/#nested-field-query
             nested_query: `${OPENSEARCH_DASHBOARDS_VERSIONED_DOCS}dql/#nested-field-query`,
           },
+          // https://opensearch.org/docs/latest/dashboards/browser-compatibility
           browser: `${OPENSEARCH_DASHBOARDS_VERSIONED_DOCS}browser-compatibility`,
         },
         noDocumentation: {
@@ -397,9 +400,14 @@ export class DocLinksService {
           functionbeat: `https://opensearch.org/docs/latest/downloads/beats/functionbeat`,
           winlogbeat: `${OPENSEARCH_WEBSITE_DOCS}`,
           siem: `${OPENSEARCH_WEBSITE_DOCS}`,
+          openSearchForum:
+            'https://forum.opensearch.org/t/feedback-experimental-feature-connect-to-external-data-sources/11144',
           indexPatterns: {
             loadingData: `${OPENSEARCH_WEBSITE_DOCS}`,
             introduction: `${OPENSEARCH_WEBSITE_DOCS}`,
+          },
+          dataSource: {
+            guide: `${OPENSEARCH_DASHBOARDS_VERSIONED_DOCS}discover/multi-data-sources/`,
           },
           management: {
             opensearchDashboardsGeneralSettings: `${OPENSEARCH_WEBSITE_DOCS}`,
@@ -420,7 +428,6 @@ export class DocLinksService {
           },
           addData: `${OPENSEARCH_WEBSITE_DOCS}`,
           vega: `${OPENSEARCH_DASHBOARDS_VERSIONED_DOCS}`,
-          dateMath: `${OPENSEARCH_WEBSITE_DOCS}`,
           savedObject: {
             manageSavedObject: `https://opensearch.org/docs/latest/guide/en/kibana/current/managing-saved-objects.html#_export`,
           },
@@ -713,6 +720,7 @@ export interface DocLinksStart {
           readonly close: string;
         };
       };
+      readonly dateMath: string;
     };
     readonly opensearchDashboards: {
       readonly introduction: string;
@@ -752,9 +760,13 @@ export interface DocLinksStart {
       readonly functionbeat: string;
       readonly winlogbeat: string;
       readonly siem: string;
+      readonly openSearchForum: string;
       readonly indexPatterns: {
         readonly loadingData: string;
         readonly introduction: string;
+      };
+      readonly dataSource: {
+        readonly guide: string;
       };
       readonly scriptedFields: {
         readonly scriptFields: string;
@@ -768,7 +780,6 @@ export interface DocLinksStart {
       readonly visualize: Record<string, string>;
       readonly addData: string;
       readonly vega: string;
-      readonly dateMath: string;
       readonly savedObject: {
         readonly manageSavedObject: string;
       };

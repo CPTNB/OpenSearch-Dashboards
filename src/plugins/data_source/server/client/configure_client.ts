@@ -12,29 +12,58 @@ import {
   UsernamePasswordTypedContent,
 } from '../../common/data_sources';
 import { DataSourcePluginConfigType } from '../../config';
-import { CryptographyClient } from '../cryptography';
-import { DataSourceConfigError } from '../lib/error';
+import { CryptographyServiceSetup } from '../cryptography_service';
+import { createDataSourceError } from '../lib/error';
+import { DataSourceClientParams } from '../types';
 import { parseClientOptions } from './client_config';
 import { OpenSearchClientPoolSetup } from './client_pool';
 
 export const configureClient = async (
-  dataSourceId: string,
-  savedObjects: SavedObjectsClientContract,
-  cryptographyClient: CryptographyClient,
+  { dataSourceId, savedObjects, cryptography }: DataSourceClientParams,
   openSearchClientPoolSetup: OpenSearchClientPoolSetup,
   config: DataSourcePluginConfigType,
   logger: Logger
 ): Promise<Client> => {
   try {
-    const dataSource = await getDataSource(dataSourceId, savedObjects);
-    const rootClient = getRootClient(dataSource.attributes, config, openSearchClientPoolSetup);
+    const { attributes: dataSource } = await getDataSource(dataSourceId!, savedObjects);
+    const rootClient = getRootClient(dataSource, config, openSearchClientPoolSetup);
 
-    return await getQueryClient(rootClient, dataSource, cryptographyClient);
+    return await getQueryClient(rootClient, dataSource, cryptography);
   } catch (error: any) {
-    logger.error(`Fail to get data source client for dataSourceId: [${dataSourceId}]`);
+    logger.error(`Failed to get data source client for dataSourceId: [${dataSourceId}]`);
     logger.error(error);
-    // Re-throw as DataSourceConfigError
-    throw new DataSourceConfigError('Fail to get data source client: ', error);
+    // Re-throw as DataSourceError
+    throw createDataSourceError(error);
+  }
+};
+
+export const configureTestClient = async (
+  { savedObjects, cryptography, dataSourceId }: DataSourceClientParams,
+  dataSource: DataSourceAttributes,
+  openSearchClientPoolSetup: OpenSearchClientPoolSetup,
+  config: DataSourcePluginConfigType,
+  logger: Logger
+): Promise<Client> => {
+  try {
+    const {
+      auth: { type, credentials },
+    } = dataSource;
+    let requireDecryption = false;
+
+    const rootClient = getRootClient(dataSource, config, openSearchClientPoolSetup);
+
+    if (type === AuthType.UsernamePasswordType && !credentials?.password && dataSourceId) {
+      const dataSourceSavedObject = await getDataSource(dataSourceId, savedObjects);
+      dataSource = dataSourceSavedObject.attributes;
+      requireDecryption = true;
+    }
+
+    return getQueryClient(rootClient, dataSource, cryptography, requireDecryption);
+  } catch (error: any) {
+    logger.error(`Failed to get test client for dataSource: ${dataSource}`);
+    logger.error(error);
+    // Re-throw as DataSourceError
+    throw createDataSourceError(error);
   }
 };
 
@@ -46,18 +75,34 @@ export const getDataSource = async (
     DATA_SOURCE_SAVED_OBJECT_TYPE,
     dataSourceId
   );
+
   return dataSource;
 };
 
 export const getCredential = async (
-  dataSource: SavedObject<DataSourceAttributes>,
-  cryptographyClient: CryptographyClient
+  dataSource: DataSourceAttributes,
+  cryptography: CryptographyServiceSetup
 ): Promise<UsernamePasswordTypedContent> => {
-  const { username, password } = dataSource.attributes.auth.credentials!;
-  const decodedPassword = await cryptographyClient.decodeAndDecrypt(password);
+  const { endpoint } = dataSource;
+
+  const { username, password } = dataSource.auth.credentials!;
+
+  const { decryptedText, encryptionContext } = await cryptography
+    .decodeAndDecrypt(password)
+    .catch((err: any) => {
+      // Re-throw as DataSourceError
+      throw createDataSourceError(err);
+    });
+
+  if (encryptionContext!.endpoint !== endpoint) {
+    throw new Error(
+      'Data source "endpoint" contaminated. Please delete and create another data source.'
+    );
+  }
+
   const credential = {
     username,
-    password: decodedPassword,
+    password: decryptedText,
   };
 
   return credential;
@@ -68,20 +113,29 @@ export const getCredential = async (
  *
  * @param rootClient root client for the connection with given data source endpoint.
  * @param dataSource data source saved object
- * @param cryptographyClient cryptography client for password encryption / decrpytion
+ * @param cryptography cryptography service for password encryption / decryption
  * @returns child client.
  */
 const getQueryClient = async (
   rootClient: Client,
-  dataSource: SavedObject<DataSourceAttributes>,
-  cryptographyClient: CryptographyClient
+  dataSource: DataSourceAttributes,
+  cryptography?: CryptographyServiceSetup,
+  requireDecryption: boolean = true
 ): Promise<Client> => {
-  if (AuthType.NoAuth === dataSource.attributes.auth.type) {
-    return rootClient.child();
-  } else {
-    const credential = await getCredential(dataSource, cryptographyClient);
+  const authType = dataSource.auth.type;
 
-    return getBasicAuthClient(rootClient, credential);
+  switch (authType) {
+    case AuthType.NoAuth:
+      return rootClient.child();
+
+    case AuthType.UsernamePasswordType:
+      const credential = requireDecryption
+        ? await getCredential(dataSource, cryptography!)
+        : (dataSource.auth.credentials as UsernamePasswordTypedContent);
+      return getBasicAuthClient(rootClient, credential);
+
+    default:
+      throw Error(`${authType} is not a supported auth type for data source`);
   }
 };
 
@@ -101,7 +155,7 @@ const getRootClient = (
   const endpoint = dataSourceAttr.endpoint;
   const cachedClient = getClientFromPool(endpoint);
   if (cachedClient) {
-    return cachedClient;
+    return cachedClient as Client;
   } else {
     const clientOptions = parseClientOptions(config, endpoint);
 

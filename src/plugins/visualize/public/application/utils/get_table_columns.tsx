@@ -60,7 +60,10 @@ const getBadge = (item: VisualizationListItem) => {
     return (
       <EuiBetaBadge
         className="visListingTable__experimentalIcon"
-        label="E"
+        label="Lab"
+        size="s"
+        color="subdued"
+        iconType={'beaker'}
         title={i18n.translate('visualize.listing.experimentalTitle', {
           defaultMessage: 'Experimental',
         })}
@@ -108,13 +111,7 @@ export const getTableColumns = (
       // In case an error occurs i.e. the vis has wrong type, we render the vis but without the link
       !error ? (
         <EuiLink
-          onClick={() => {
-            if (editApp) {
-              application.navigateToApp(editApp, { path: editUrl });
-            } else if (editUrl) {
-              history.push(editUrl);
-            }
-          }}
+          href={editApp ? application.getUrlForApp(editApp, { path: editUrl }) : `#${editUrl}`}
           data-test-subj={`visListingTitleLink-${title.split(' ').join('-')}`}
         >
           {field}

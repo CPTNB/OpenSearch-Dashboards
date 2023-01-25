@@ -5,28 +5,24 @@
 
 import React from 'react';
 import { Header } from '../header';
-import { shallow } from 'enzyme';
+import { shallowWithIntl } from 'test_utils/enzyme_helpers';
+
+jest.mock('../../../../../../../../../plugins/opensearch_dashboards_react/public', () => ({
+  useOpenSearchDashboards: jest.fn().mockReturnValue({
+    services: {
+      notifications: { toast: { addWarning: jest.fn() } },
+    },
+  }),
+}));
+
+afterAll(() => jest.clearAllMocks());
 
 describe('Header', () => {
-  it('should render normally', () => {
-    const component = shallow(
+  it('should render existing data sources list when choose to use data source', () => {
+    const component = shallowWithIntl(
       <Header
         onDataSourceSelected={() => {}}
-        dataSourceRef={{ type: 'type', id: 'id' }!}
-        goToNextStep={() => {}}
-        isNextStepDisabled={true}
-        stepInfo={{ totalStepNumber: 0, currentStepNumber: 0 }}
-      />
-    );
-
-    expect(component).toMatchSnapshot();
-  });
-
-  it('should render data source finder when choose to use data source', () => {
-    const component = shallow(
-      <Header
-        onDataSourceSelected={() => {}}
-        dataSourceRef={{ type: 'type', id: 'id' }!}
+        dataSourceRef={{ type: 'type', id: 'id', title: 'title' }!}
         goToNextStep={() => {}}
         isNextStepDisabled={true}
         stepInfo={{ totalStepNumber: 0, currentStepNumber: 0 }}
@@ -41,14 +37,19 @@ describe('Header', () => {
         },
       });
 
-    expect(component).toMatchSnapshot();
+    expect(
+      component
+        .find('[data-test-subj="createIndexPatternStepDataSourceSelectDataSource"]')
+        .first()
+        .exists()
+    ).toBeTruthy();
   });
 
   it('should disable next step before select data source', () => {
-    const component = shallow(
+    const component = shallowWithIntl(
       <Header
         onDataSourceSelected={() => {}}
-        dataSourceRef={{ type: 'type', id: 'id' }!}
+        dataSourceRef={{ type: 'type', id: 'id', title: 'title' }!}
         goToNextStep={() => {}}
         isNextStepDisabled={true}
         stepInfo={{ totalStepNumber: 0, currentStepNumber: 0 }}
@@ -71,10 +72,10 @@ describe('Header', () => {
   });
 
   it('should enable next step when pick default option', () => {
-    const component = shallow(
+    const component = shallowWithIntl(
       <Header
         onDataSourceSelected={() => {}}
-        dataSourceRef={{ type: 'type', id: 'id' }!}
+        dataSourceRef={{ type: 'type', id: 'id', title: 'title' }!}
         goToNextStep={() => {}}
         isNextStepDisabled={true}
         stepInfo={{ totalStepNumber: 0, currentStepNumber: 0 }}
