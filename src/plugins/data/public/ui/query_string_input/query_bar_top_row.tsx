@@ -250,6 +250,9 @@ export default function QueryBarTopRow(props: QueryBarTopRowProps) {
         isLoading={props.isLoading}
         onClick={onClickSubmitButton}
         data-test-subj="querySubmitButton"
+        aria-label={i18n.translate('data.query.queryBar.querySubmitButtonLabel', {
+          defaultMessage: 'Submit query',
+        })}
       />
     );
 
@@ -379,16 +382,18 @@ export default function QueryBarTopRow(props: QueryBarTopRowProps) {
   });
 
   return (
-    <EuiFlexGroup
-      className={classes}
-      responsive={!!props.showDatePicker}
-      gutterSize="s"
-      justifyContent="flexEnd"
-    >
-      {renderQueryInput()}
-      {renderSharingMetaFields()}
-      <EuiFlexItem grow={false}>{renderUpdateButton()}</EuiFlexItem>
-    </EuiFlexGroup>
+    <>
+      <EuiFlexGroup
+        className={classes}
+        responsive={!!props.showDatePicker}
+        gutterSize="s"
+        justifyContent="flexEnd"
+      >
+        {renderQueryInput()}
+        {renderSharingMetaFields()}
+        <EuiFlexItem grow={false}>{renderUpdateButton()}</EuiFlexItem>
+      </EuiFlexGroup>
+    </>
   );
 }
 

@@ -183,7 +183,6 @@ export function createRegionMapVisualization({
       const metricFieldFormatter = getFormatService().deserialize(this._params.metric.format);
 
       this._choroplethLayer.setLayerChosenByUser(this._params.layerChosenByUser);
-
       this._choroplethLayer.setJoinField(this._params.selectedJoinField.name);
       this._choroplethLayer.setColorRamp(truncatedColorMaps[this._params.colorSchema].value);
       this._choroplethLayer.setLineWeight(this._params.outlineWeight);
@@ -230,7 +229,9 @@ export function createRegionMapVisualization({
           await getServiceSettings(),
           (await lazyLoadMapsLegacyModules()).L,
           this._params.layerChosenByUser,
-          http
+          http,
+          uiSettings,
+          this.vis.type.editorConfig.collections.dataSourceRefId
         );
       } else {
         const { ChoroplethLayer } = await import('./choropleth_layer');
@@ -244,7 +245,9 @@ export function createRegionMapVisualization({
           await getServiceSettings(),
           (await lazyLoadMapsLegacyModules()).L,
           this._params.layerChosenByUser,
-          http
+          http,
+          uiSettings,
+          this.vis.type.editorConfig.collections.dataSourceRefId
         );
       }
       this._choroplethLayer.setLayerChosenByUser(this._params.layerChosenByUser);

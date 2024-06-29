@@ -105,6 +105,9 @@ export type PluginName = string;
 /** @public */
 export type PluginOpaqueId = symbol;
 
+/** @public */
+export type CompatibleEnginePluginVersions = Record<string, string>;
+
 /** @internal */
 export interface PluginDependencies {
   asNames: ReadonlyMap<PluginName, PluginName[]>;
@@ -155,6 +158,12 @@ export interface PluginManifest {
   readonly requiredPlugins: readonly PluginName[];
 
   /**
+   * An optional list of the OpenSearch plugins that **must be** installed on the cluster
+   * for this plugin to function properly.
+   */
+  readonly requiredEnginePlugins: CompatibleEnginePluginVersions;
+
+  /**
    * List of plugin ids that this plugin's UI code imports modules from that are
    * not in `requiredPlugins`.
    *
@@ -191,6 +200,12 @@ export interface PluginManifest {
    * @deprecated
    */
   readonly extraPublicDirs?: string[];
+
+  /**
+   * Specifies the supported version range when adding OpenSearch cluster as data sources.
+   * Value will be following semver as a range for example ">= 1.3.0"
+   */
+  readonly supportedOSDataSourceVersions?: string;
 }
 
 /**
@@ -221,6 +236,12 @@ export interface DiscoveredPlugin {
    * not required for this plugin to work properly.
    */
   readonly optionalPlugins: readonly PluginName[];
+
+  /**
+   * An optional list of the OpenSearch plugins that **must be** installed on the cluster
+   * for this plugin to function properly.
+   */
+  readonly requiredEnginePlugins: CompatibleEnginePluginVersions;
 
   /**
    * List of plugin ids that this plugin's UI code imports modules from that are
@@ -272,10 +293,17 @@ export interface Plugin<
 
 export const SharedGlobalConfigKeys = {
   // We can add more if really needed
-  opensearchDashboards: ['index', 'autocompleteTerminateAfter', 'autocompleteTimeout'] as const,
+  opensearchDashboards: [
+    'index',
+    'configIndex',
+    'autocompleteTerminateAfter',
+    'autocompleteTimeout',
+    'dashboardAdmin',
+    'futureNavigation',
+  ] as const,
   opensearch: ['shardTimeout', 'requestTimeout', 'pingTimeout'] as const,
   path: ['data'] as const,
-  savedObjects: ['maxImportPayloadBytes'] as const,
+  savedObjects: ['maxImportPayloadBytes', 'permission'] as const,
 };
 
 /**

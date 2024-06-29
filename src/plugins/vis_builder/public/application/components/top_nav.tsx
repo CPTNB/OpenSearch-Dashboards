@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { isEqual } from 'lodash';
 import { useParams } from 'react-router-dom';
 import { useUnmount } from 'react-use';
 import { useOpenSearchDashboards } from '../../../../opensearch_dashboards_react/public';
@@ -13,25 +14,42 @@ import { VisBuilderServices } from '../../types';
 import './top_nav.scss';
 import { useIndexPatterns, useSavedVisBuilderVis } from '../utils/use';
 import { useTypedSelector, useTypedDispatch } from '../utils/state_management';
+import { setSavedQuery } from '../utils/state_management/visualization_slice';
 import { setEditorState } from '../utils/state_management/metadata_slice';
 import { useCanSave } from '../utils/use/use_can_save';
 import { saveStateToSavedObject } from '../../saved_visualizations/transforms';
 import { TopNavMenuData } from '../../../../navigation/public';
 import { opensearchFilters, connectStorageToQueryState } from '../../../../data/public';
+import { RootState } from '../../../../data_explorer/public';
+
+function useDeepEffect(callback, dependencies) {
+  const currentDepsRef = useRef(dependencies);
+
+  if (!isEqual(currentDepsRef.current, dependencies)) {
+    callback();
+    currentDepsRef.current = dependencies;
+  }
+}
 
 export const TopNav = () => {
   // id will only be set for the edit route
   const { id: visualizationIdFromUrl } = useParams<{ id: string }>();
   const { services } = useOpenSearchDashboards<VisBuilderServices>();
   const {
+    data,
     setHeaderActionMenu,
     navigation: {
       ui: { TopNavMenu },
     },
     appName,
+    capabilities,
   } = services;
-  const rootState = useTypedSelector((state) => state);
+  const rootState = useTypedSelector((state: RootState) => state);
   const dispatch = useTypedDispatch();
+
+  useDeepEffect(() => {
+    dispatch(setEditorState({ state: 'dirty' }));
+  }, [data.query.queryString.getQuery(), data.query.filterManager.getFilters()]);
 
   const saveDisabledReason = useCanSave();
   const savedVisBuilderVis = useSavedVisBuilderVis(visualizationIdFromUrl);
@@ -78,6 +96,11 @@ export const TopNav = () => {
     dispatch(setEditorState({ state: 'loading' }));
   });
 
+  const updateSavedQueryId = (newSavedQueryId: string | undefined) => {
+    dispatch(setSavedQuery(newSavedQueryId));
+  };
+  const showSaveQuery = !!capabilities['visualization-visbuilder']?.saveQuery;
+
   return (
     <div className="vbTopNav">
       <TopNavMenu
@@ -87,8 +110,10 @@ export const TopNav = () => {
         indexPatterns={indexPattern ? [indexPattern] : []}
         showDatePicker={!!indexPattern?.timeFieldName ?? true}
         showSearchBar
-        showSaveQuery
+        showSaveQuery={showSaveQuery}
         useDefaultBehaviors
+        savedQueryId={rootState.visualization.savedQuery}
+        onSavedQueryIdChange={updateSavedQueryId}
       />
     </div>
   );

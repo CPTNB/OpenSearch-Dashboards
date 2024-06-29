@@ -37,13 +37,13 @@ import {
   showSaveModal,
 } from '../../../../saved_objects/public';
 import { VisBuilderServices } from '../..';
-import { VisBuilderVisSavedObject } from '../../types';
+import { VisBuilderSavedObject } from '../../types';
 import { AppDispatch } from './state_management';
 import { EDIT_PATH, VISBUILDER_SAVED_OBJECT } from '../../../common';
 import { setEditorState } from './state_management/metadata_slice';
 export interface TopNavConfigParams {
   visualizationIdFromUrl: string;
-  savedVisBuilderVis: VisBuilderVisSavedObject;
+  savedVisBuilderVis: VisBuilderSavedObject;
   saveDisabledReason?: string;
   dispatch: AppDispatch;
   originatingApp?: string;
@@ -172,7 +172,7 @@ export const getOnSave = (
     returnToOrigin: boolean;
     newDescription?: string;
   }) => {
-    const { embeddable, toastNotifications, application, history } = services;
+    const { data, embeddable, toastNotifications, application, history } = services;
     const stateTransfer = embeddable.getStateTransfer();
 
     if (!savedVisBuilderVis) {
@@ -183,6 +183,9 @@ export const getOnSave = (
     savedVisBuilderVis.title = newTitle;
     savedVisBuilderVis.description = newDescription;
     savedVisBuilderVis.copyOnSave = newCopyOnSave;
+    const searchSourceInstance = savedVisBuilderVis.searchSourceFields;
+    searchSourceInstance.query = data.query.queryString.getQuery() || null;
+    searchSourceInstance.filter = data.query.filterManager.getFilters() || null;
     const newlyCreated = !savedVisBuilderVis.id || savedVisBuilderVis.copyOnSave;
 
     try {

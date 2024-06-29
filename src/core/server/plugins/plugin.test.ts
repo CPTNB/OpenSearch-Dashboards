@@ -69,10 +69,15 @@ function createPluginManifest(manifestProps: Partial<PluginManifest> = {}): Plug
     configPath: 'path',
     opensearchDashboardsVersion: '7.0.0',
     requiredPlugins: ['some-required-dep'],
+    requiredEnginePlugins: {
+      'test-os-plugin1': '^2.2.1',
+      'test-os-plugin2': '2.2.1 || 2.2.2',
+    },
     optionalPlugins: ['some-optional-dep'],
     requiredBundles: [],
     server: true,
     ui: true,
+    supportedOSDataSourceVersions: '>=1.0.0',
     ...manifestProps,
   };
 }
@@ -121,6 +126,7 @@ test('`constructor` correctly initializes plugin instance', () => {
   expect(plugin.path).toBe('some-plugin-path');
   expect(plugin.requiredPlugins).toEqual(['some-required-dep']);
   expect(plugin.optionalPlugins).toEqual(['some-optional-dep']);
+  expect(plugin.supportedOSDataSourceVersions).toEqual('>=1.0.0');
 });
 
 test('`setup` fails if `plugin` initializer is not exported', async () => {

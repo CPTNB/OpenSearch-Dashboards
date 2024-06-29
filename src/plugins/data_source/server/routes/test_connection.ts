@@ -5,16 +5,21 @@
 
 import { schema } from '@osd/config-schema';
 import { IRouter, OpenSearchClient } from 'opensearch-dashboards/server';
-import { DataSourceAttributes } from '../../common/data_sources';
+import { AuthType, DataSourceAttributes, SigV4ServiceName } from '../../common/data_sources';
 import { DataSourceConnectionValidator } from './data_source_connection_validator';
 import { DataSourceServiceSetup } from '../data_source_service';
 import { CryptographyServiceSetup } from '../cryptography_service';
+import { IAuthenticationMethodRegistry } from '../auth_registry';
+import { CustomApiSchemaRegistry } from '../schema_registry/custom_api_schema_registry';
 
-export const registerTestConnectionRoute = (
+export const registerTestConnectionRoute = async (
   router: IRouter,
   dataSourceServiceSetup: DataSourceServiceSetup,
-  cryptography: CryptographyServiceSetup
+  cryptography: CryptographyServiceSetup,
+  authRegistryPromise: Promise<IAuthenticationMethodRegistry>,
+  customApiSchemaRegistryPromise: Promise<CustomApiSchemaRegistry>
 ) => {
+  const authRegistry = await authRegistryPromise;
   router.post(
     {
       path: '/internal/data-source-management/validate',
@@ -24,19 +29,45 @@ export const registerTestConnectionRoute = (
           dataSourceAttr: schema.object({
             endpoint: schema.string(),
             auth: schema.maybe(
-              schema.object({
-                type: schema.oneOf([
-                  schema.literal('username_password'),
-                  schema.literal('no_auth'),
-                ]),
-                credentials: schema.oneOf([
-                  schema.object({
+              schema.oneOf([
+                schema.object({
+                  type: schema.literal(AuthType.NoAuth),
+                  credentials: schema.object({}),
+                }),
+                schema.object({
+                  type: schema.literal(AuthType.UsernamePasswordType),
+                  credentials: schema.object({
                     username: schema.string(),
                     password: schema.string(),
                   }),
-                  schema.literal(null),
-                ]),
-              })
+                }),
+                schema.object({
+                  type: schema.literal(AuthType.SigV4),
+                  credentials: schema.object({
+                    region: schema.string(),
+                    accessKey: schema.string(),
+                    secretKey: schema.string(),
+                    service: schema.oneOf([
+                      schema.literal(SigV4ServiceName.OpenSearch),
+                      schema.literal(SigV4ServiceName.OpenSearchServerless),
+                    ]),
+                  }),
+                }),
+                schema.object({
+                  type: schema.string({
+                    validate: (value) => {
+                      if (
+                        value === AuthType.NoAuth ||
+                        value === AuthType.UsernamePasswordType ||
+                        value === AuthType.SigV4
+                      ) {
+                        return `Must not be no_auth or username_password or sigv4 for registered auth types`;
+                      }
+                    },
+                  }),
+                  credentials: schema.nullable(schema.any()),
+                }),
+              ])
             ),
           }),
         }),
@@ -46,17 +77,24 @@ export const registerTestConnectionRoute = (
       const { dataSourceAttr, id: dataSourceId } = request.body;
 
       try {
-        const dataSourceClient: OpenSearchClient = await dataSourceServiceSetup.getTestingClient(
+        const dataSourceClient: OpenSearchClient = await dataSourceServiceSetup.getDataSourceClient(
           {
-            dataSourceId,
             savedObjects: context.core.savedObjects.client,
             cryptography,
-          },
-          dataSourceAttr as DataSourceAttributes
+            dataSourceId,
+            testClientDataSourceAttr: dataSourceAttr as DataSourceAttributes,
+            request,
+            authRegistry,
+            customApiSchemaRegistryPromise,
+          }
         );
-        const dsValidator = new DataSourceConnectionValidator(dataSourceClient);
 
-        await dsValidator.validate();
+        const dataSourceValidator = new DataSourceConnectionValidator(
+          dataSourceClient,
+          dataSourceAttr
+        );
+
+        await dataSourceValidator.validate();
 
         return response.ok({
           body: {

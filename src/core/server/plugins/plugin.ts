@@ -66,9 +66,11 @@ export class PluginWrapper<
   public readonly configPath: PluginManifest['configPath'];
   public readonly requiredPlugins: PluginManifest['requiredPlugins'];
   public readonly optionalPlugins: PluginManifest['optionalPlugins'];
+  public readonly requiredEnginePlugins: PluginManifest['requiredEnginePlugins'];
   public readonly requiredBundles: PluginManifest['requiredBundles'];
   public readonly includesServerPlugin: PluginManifest['server'];
   public readonly includesUiPlugin: PluginManifest['ui'];
+  public readonly supportedOSDataSourceVersions: PluginManifest['supportedOSDataSourceVersions'];
 
   private readonly log: Logger;
   private readonly initializerContext: PluginInitializerContext;
@@ -95,9 +97,11 @@ export class PluginWrapper<
     this.configPath = params.manifest.configPath;
     this.requiredPlugins = params.manifest.requiredPlugins;
     this.optionalPlugins = params.manifest.optionalPlugins;
+    this.requiredEnginePlugins = params.manifest.requiredEnginePlugins;
     this.requiredBundles = params.manifest.requiredBundles;
     this.includesServerPlugin = params.manifest.server;
     this.includesUiPlugin = params.manifest.ui;
+    this.supportedOSDataSourceVersions = params.manifest.supportedOSDataSourceVersions;
   }
 
   /**
