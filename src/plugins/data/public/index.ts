@@ -62,6 +62,14 @@ import {
 } from '../common';
 
 import { FilterLabel } from './ui';
+export {
+  createEditor,
+  DefaultInput,
+  DQLBody,
+  SingleLineInput,
+  DatasetSelector,
+  DatasetSelectorAppearance,
+} from './ui';
 
 import {
   generateFilters,
@@ -437,8 +445,15 @@ export {
   IndexPatternSelectProps,
   QueryStringInput,
   QueryStringInputProps,
+  QueryEditor,
+  QueryEditorExtensionConfig,
+  QueryEditorExtensions,
+  QueryEditorExtensionDependencies,
+  QueryEditorProps,
+  QueryEditorTopRow,
   // for BWC, keeping the old name
   IUiStart as DataPublicPluginStartUi,
+  useQueryStringManager,
 } from './ui';
 
 /**
@@ -450,11 +465,24 @@ export { Filter, Query, RefreshInterval, TimeRange } from '../common';
 export {
   createSavedQueryService,
   connectStorageToQueryState,
+  useConnectStorageToQueryState,
   connectToQueryState,
   syncQueryStateWithUrl,
   QueryState,
   getDefaultQuery,
   FilterManager,
+  QueryStringContract,
+  QueryStringManager,
+  DatasetTypeConfig,
+  DatasetService,
+  DatasetServiceContract,
+  LanguageConfig,
+  LanguageService,
+  LanguageServiceContract,
+  RecentQueriesTable,
+  QueryControls,
+  QueryResult,
+  QueryStatus,
   SavedQuery,
   SavedQueryService,
   SavedQueryTimeFilter,
@@ -465,6 +493,8 @@ export {
   QueryStateChange,
   QueryStart,
   PersistedLog,
+  LanguageReference,
+  DatasetIndexedViewsService,
 } from './query';
 
 export { AggsStart } from './search/aggs';

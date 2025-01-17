@@ -55,12 +55,13 @@ export function HitsCounter({ hits, showResetButton, onResetQuery }: HitsCounter
       <EuiFlexGroup
         gutterSize="s"
         className="dscResultCount"
+        data-test-subj="dscResultCount"
         responsive={false}
         justifyContent="center"
         alignItems="center"
       >
         <EuiFlexItem grow={false}>
-          <EuiText>
+          <EuiText size="s">
             <strong data-test-subj="discoverQueryHits">{formatNumWithCommas(hits)}</strong>{' '}
             <FormattedMessage
               id="discover.hitsPluralTitle"

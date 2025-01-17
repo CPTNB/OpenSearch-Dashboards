@@ -6,7 +6,7 @@
 import React, { Fragment, useState } from 'react';
 
 import {
-  EuiButton,
+  EuiSmallButton,
   EuiFlexGroup,
   EuiFlexItem,
   EuiRadio,
@@ -69,13 +69,26 @@ export const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
     getDataSources(savedObjects.client)
       .then((fetchedDataSources: DataSourceTableItem[]) => {
         setIsLoading(false);
+
         if (fetchedDataSources?.length) {
-          fetchedDataSources = fetchedDataSources.filter((dataSource) =>
-            semver.satisfies(
-              dataSource.datasourceversion,
-              pluginManifest.supportedOSDataSourceVersions
-            )
-          );
+          // filter out data sources which does NOT have the required backend plugins installed
+          if (pluginManifest.hasOwnProperty('requiredOSDataSourcePlugins')) {
+            fetchedDataSources = fetchedDataSources.filter((dataSource) =>
+              pluginManifest.requiredOSDataSourcePlugins.every((plugin) =>
+                dataSource.installedplugins.includes(plugin)
+              )
+            );
+          }
+
+          // filter out data sources which is NOT in the support range of plugin
+          if (pluginManifest.hasOwnProperty('supportedOSDataSourceVersions')) {
+            fetchedDataSources = fetchedDataSources.filter((dataSource) =>
+              semver.satisfies(
+                dataSource.datasourceversion,
+                pluginManifest.supportedOSDataSourceVersions
+              )
+            );
+          }
           setDataSources(fetchedDataSources);
         }
       })
@@ -199,7 +212,7 @@ export const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
         <EuiSpacer size="m" />
         <EuiFlexGroup justifyContent="flexEnd">
           <EuiFlexItem grow={false}>
-            <EuiButton
+            <EuiSmallButton
               data-test-subj="createIndexPatternStepDataSourceNextStepButton"
               fill
               iconSide="right"
@@ -211,7 +224,7 @@ export const Header: React.FC<HeaderProps> = (props: HeaderProps) => {
                 id="indexPatternManagement.createIndexPattern.step.nextStepButton"
                 defaultMessage="Next step"
               />
-            </EuiButton>
+            </EuiSmallButton>
           </EuiFlexItem>
         </EuiFlexGroup>
       </div>

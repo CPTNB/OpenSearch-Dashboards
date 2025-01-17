@@ -6,7 +6,8 @@
 import { BehaviorSubject } from 'rxjs';
 import type { PublicMethodsOf } from '@osd/utility-types';
 
-import { WorkspacesService, WorkspaceObject } from './workspaces_service';
+import { IWorkspaceClient, WorkspaceObject } from './types';
+import { WorkspacesService } from './workspaces_service';
 
 const createWorkspacesSetupContractMock = () => {
   const currentWorkspaceId$ = new BehaviorSubject<string>('');
@@ -18,6 +19,7 @@ const createWorkspacesSetupContractMock = () => {
     workspaceList$,
     currentWorkspace$,
     initialized$,
+    setClient: jest.fn(),
   };
 };
 
@@ -26,11 +28,14 @@ const createWorkspacesStartContractMock = () => {
   const workspaceList$ = new BehaviorSubject<WorkspaceObject[]>([]);
   const currentWorkspace$ = new BehaviorSubject<WorkspaceObject | null>(null);
   const initialized$ = new BehaviorSubject<boolean>(false);
+  const client$ = new BehaviorSubject<IWorkspaceClient | null>(null);
+
   return {
     currentWorkspaceId$,
     workspaceList$,
     currentWorkspace$,
     initialized$,
+    client$,
   };
 };
 

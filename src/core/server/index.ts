@@ -70,6 +70,12 @@ import {
   SavedObjectsServiceSetup,
   SavedObjectsServiceStart,
 } from './saved_objects';
+import {
+  AsyncLocalStorageContext,
+  DynamicConfigServiceSetup,
+  DynamicConfigServiceStart,
+  IDynamicConfigurationClient,
+} from './config';
 import { CapabilitiesSetup, CapabilitiesStart } from './capabilities';
 import { MetricsServiceSetup, MetricsServiceStart } from './metrics';
 import { StatusServiceSetup } from './status';
@@ -87,6 +93,7 @@ import {
   CoreEnvironmentUsageData,
   CoreServicesUsageData,
 } from './core_usage_data';
+import { WorkspaceSetup, WorkspaceStart } from './workspace';
 
 export { CoreUsageData, CoreConfigUsageData, CoreEnvironmentUsageData, CoreServicesUsageData };
 
@@ -102,6 +109,13 @@ export {
   ConfigDeprecationFactory,
   EnvironmentMode,
   PackageInfo,
+  IDynamicConfigurationClient,
+  DynamicConfigurationClientOptions,
+  ConfigIdentifier,
+  GetConfigProps,
+  BulkGetConfigProps,
+  IDynamicConfigStoreClient,
+  IDynamicConfigStoreClientFactory,
 } from './config';
 export {
   IContextContainer,
@@ -345,6 +359,8 @@ export {
   StringValidation,
   StringValidationRegex,
   StringValidationRegexString,
+  CURRENT_USER_PLACEHOLDER,
+  UiSettingScope,
 } from './ui_settings';
 
 export {
@@ -356,12 +372,18 @@ export {
   MetricsServiceStart,
 } from './metrics';
 
-export { AppCategory, WorkspaceAttribute } from '../types';
+export {
+  AppCategory,
+  WorkspaceAttribute,
+  PermissionModeId,
+  WorkspaceFindOptions,
+  WorkspacePermissionMode,
+} from '../types';
 export {
   DEFAULT_APP_CATEGORIES,
-  PUBLIC_WORKSPACE_ID,
-  PUBLIC_WORKSPACE_NAME,
   WORKSPACE_TYPE,
+  DEFAULT_NAV_GROUPS,
+  WORKSPACE_PATH_PREFIX,
 } from '../utils';
 
 export {
@@ -404,6 +426,7 @@ export { CoreUsageDataStart } from './core_usage_data';
  *    - {@link IUiSettingsClient | uiSettings.client} - uiSettings client
  *      which uses the credentials of the incoming request
  *    - {@link Auditor | uiSettings.auditor} - AuditTrail client scoped to the incoming request
+ *    - {@link IDynamicConfigurationClient | dynamicConfig.client} - Dynamic configuration client
  *
  * @public
  */
@@ -421,6 +444,10 @@ export interface RequestHandlerContext {
     };
     uiSettings: {
       client: IUiSettingsClient;
+    };
+    dynamicConfig: {
+      client: IDynamicConfigurationClient;
+      asyncLocalStore: AsyncLocalStorageContext | undefined;
     };
     auditor: Auditor;
   };
@@ -463,6 +490,10 @@ export interface CoreSetup<TPluginsStart extends object = object, TStart = unkno
   getStartServices: StartServicesAccessor<TPluginsStart, TStart>;
   /** {@link AuditTrailSetup} */
   auditTrail: AuditTrailSetup;
+  /** {@link DynamicConfigServiceSetup} */
+  dynamicConfigService: DynamicConfigServiceSetup;
+  /** {@link WorkspaceSetup} */
+  workspace: WorkspaceSetup;
 }
 
 /**
@@ -502,6 +533,10 @@ export interface CoreStart {
   coreUsageData: CoreUsageDataStart;
   /** {@link CrossCompatibilityServiceStart} */
   crossCompatibility: CrossCompatibilityServiceStart;
+  /** {@link DynamicConfigServiceStart} */
+  dynamicConfig: DynamicConfigServiceStart;
+  /** {@link WorkspaceStart} */
+  workspace: WorkspaceStart;
 }
 
 export {

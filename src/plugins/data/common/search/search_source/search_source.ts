@@ -89,12 +89,16 @@ import { fieldWildcardFilter } from '../../../../opensearch_dashboards_utils/com
 import { IIndexPattern } from '../../index_patterns';
 import {
   DATA_FRAME_TYPES,
+  FetchStatusResponse,
   IDataFrame,
+  IDataFrameDefaultResponse,
+  IDataFrameError,
+  IDataFramePollingResponse,
   IDataFrameResponse,
+  QueryStartedResponse,
+  QuerySuccessStatusResponse,
   convertResult,
   createDataFrame,
-  getRawQueryString,
-  parseRawQueryString,
 } from '../../data_frames';
 import { IOpenSearchSearchRequest, IOpenSearchSearchResponse, ISearchOptions } from '../..';
 import { IOpenSearchDashboardsSearchRequest, IOpenSearchDashboardsSearchResponse } from '../types';
@@ -116,6 +120,7 @@ import {
 import { getHighlightRequest } from '../../../common/field_formats';
 import { fetchSoon } from './legacy';
 import { extractReferences } from './extract_references';
+import { handleQueryResults } from '../../utils/helpers';
 
 /** @internal */
 export const searchSourceRequiredUiSettings = [
@@ -132,6 +137,7 @@ export const searchSourceRequiredUiSettings = [
   UI_SETTINGS.SEARCH_INCLUDE_FROZEN,
   UI_SETTINGS.SORT_OPTIONS,
   UI_SETTINGS.QUERY_DATAFRAME_HYDRATION_STRATEGY,
+  UI_SETTINGS.SEARCH_INCLUDE_ALL_FIELDS,
 ];
 
 export interface SearchSourceDependencies extends FetchHandlers {
@@ -148,7 +154,7 @@ export interface SearchSourceDependencies extends FetchHandlers {
   ) => Promise<SearchStrategyResponse>;
   df: {
     get: () => IDataFrame | undefined;
-    set: (dataFrame: IDataFrame) => Promise<void>;
+    set: (dataFrame: IDataFrame) => void;
     clear: () => void;
   };
 }
@@ -320,11 +326,9 @@ export class SearchSource {
    * @return {undefined|IDataFrame}
    */
   async createDataFrame(searchRequest: SearchRequest) {
-    const rawQueryString = this.getRawQueryStringFromRequest(searchRequest);
     const dataFrame = createDataFrame({
       name: searchRequest.index.title || searchRequest.index,
       fields: [],
-      ...(rawQueryString && { meta: { queryConfig: parseRawQueryString(rawQueryString) } }),
     });
     await this.setDataFrame(dataFrame);
     return this.getDataFrame();
@@ -426,23 +430,59 @@ export class SearchSource {
   private async fetchExternalSearch(searchRequest: SearchRequest, options: ISearchOptions) {
     const { search, getConfig, onResponse } = this.dependencies;
 
-    if (!this.getDataFrame()) {
+    const currentDataframe = this.getDataFrame();
+    if (!currentDataframe || currentDataframe.name !== searchRequest.index?.id) {
       await this.createDataFrame(searchRequest);
     }
 
     const params = getExternalSearchParamsFromRequest(searchRequest, {
       getConfig,
-      getDataFrame: this.getDataFrame.bind(this),
     });
 
     return search({ params }, options).then(async (response: any) => {
       if (response.hasOwnProperty('type')) {
         if ((response as IDataFrameResponse).type === DATA_FRAME_TYPES.DEFAULT) {
-          const dataFrameResponse = response as IDataFrameResponse;
+          const dataFrameResponse = response as IDataFrameDefaultResponse;
           await this.setDataFrame(dataFrameResponse.body as IDataFrame);
           return onResponse(searchRequest, convertResult(response as IDataFrameResponse));
         }
-        // TODO: MQL else if data_frame_polling then poll for the data frame updating the df fields only
+        if ((response as IDataFrameResponse).type === DATA_FRAME_TYPES.POLLING) {
+          const startTime = Date.now();
+          const { status } = response as IDataFramePollingResponse;
+          let results;
+          if (status === 'success') {
+            results = response as QuerySuccessStatusResponse;
+          } else if (status === 'started') {
+            const {
+              body: { queryStatusConfig },
+            } = response as QueryStartedResponse;
+
+            if (!queryStatusConfig) {
+              throw new Error('Cannot poll results for undefined query status config');
+            }
+
+            results = await handleQueryResults({
+              pollQueryResults: async () =>
+                search(
+                  { params: { ...params, pollQueryResultsParams: { ...queryStatusConfig } } },
+                  options
+                ) as Promise<FetchStatusResponse>,
+              queryId: queryStatusConfig.queryId,
+            });
+          } else {
+            throw new Error('Invalid query state');
+          }
+
+          const elapsedMs = Date.now() - startTime;
+          (results as any).took = elapsedMs;
+
+          await this.setDataFrame((results as QuerySuccessStatusResponse).body as IDataFrame);
+          return onResponse(searchRequest, convertResult(results as IDataFrameResponse));
+        }
+        if ((response as IDataFrameResponse).type === DATA_FRAME_TYPES.ERROR) {
+          const dataFrameError = response as IDataFrameError;
+          throw new RequestFailure(null, dataFrameError);
+        }
       }
       return onResponse(searchRequest, response.rawResponse);
     });
@@ -471,10 +511,6 @@ export class SearchSource {
 
   private isUnsupportedRequest(request: SearchRequest): boolean {
     return request.body!.query.hasOwnProperty('type') && request.body!.query.type === 'unsupported';
-  }
-
-  private getRawQueryStringFromRequest(request: SearchRequest): string | undefined {
-    return getRawQueryString({ params: request });
   }
 
   /**
@@ -584,6 +620,7 @@ export class SearchSource {
 
   flatten() {
     const searchRequest = this.mergeProps();
+    const { getConfig } = this.dependencies;
 
     searchRequest.body = searchRequest.body || {};
     const { body, index, fields, query, filters, highlightAll } = searchRequest;
@@ -593,6 +630,9 @@ export class SearchSource {
 
     body.stored_fields = computedFields.storedFields;
     body.script_fields = body.script_fields || {};
+    if (getConfig(UI_SETTINGS.SEARCH_INCLUDE_ALL_FIELDS)) {
+      body.fields = ['*'];
+    }
     extend(body.script_fields, computedFields.scriptFields);
 
     const defaultDocValueFields = computedFields.docvalueFields
@@ -603,8 +643,6 @@ export class SearchSource {
     if (!body.hasOwnProperty('_source') && index) {
       body._source = index.getSourceFiltering();
     }
-
-    const { getConfig } = this.dependencies;
 
     if (body._source) {
       // exclude source fields for this index pattern specified by the user
