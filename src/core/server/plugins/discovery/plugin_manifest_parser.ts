@@ -69,6 +69,7 @@ const KNOWN_MANIFEST_FIELDS = (() => {
     extraPublicDirs: true,
     requiredBundles: true,
     supportedOSDataSourceVersions: true,
+    requiredOSDataSourcePlugins: true,
   };
 
   return new Set(Object.keys(manifestFields));
@@ -246,7 +247,13 @@ export async function parseManifest(
     ui: includesUiPlugin,
     server: includesServerPlugin,
     extraPublicDirs: manifest.extraPublicDirs,
-    supportedOSDataSourceVersions: manifest.supportedOSDataSourceVersions,
+    supportedOSDataSourceVersions:
+      manifest.supportedOSDataSourceVersions !== undefined
+        ? manifest.supportedOSDataSourceVersions
+        : '',
+    requiredOSDataSourcePlugins: Array.isArray(manifest.requiredOSDataSourcePlugins)
+      ? manifest.requiredOSDataSourcePlugins
+      : [],
   };
 }
 
@@ -279,19 +286,15 @@ function isVersionCompatible(
   }
 
   const coercedActualOpenSearchDashboardsVersion = coerce(actualOpenSearchDashboardsVersion);
-  if (coercedActualOpenSearchDashboardsVersion == null) {
-    return false;
-  }
-
   const coercedExpectedOpenSearchDashboardsVersion = coerce(expectedOpenSearchDashboardsVersion);
-  if (coercedExpectedOpenSearchDashboardsVersion == null) {
+
+  if (!coercedActualOpenSearchDashboardsVersion || !coercedExpectedOpenSearchDashboardsVersion) {
     return false;
   }
 
-  // Compare coerced versions, e.g. `1.2.3` ---> `1.2.3` and `7.0.0-alpha1` ---> `7.0.0`.
-  return (
-    coercedActualOpenSearchDashboardsVersion.compare(coercedExpectedOpenSearchDashboardsVersion) ===
-    0
+  return semver.eq(
+    coercedActualOpenSearchDashboardsVersion,
+    coercedExpectedOpenSearchDashboardsVersion
   );
 }
 /**

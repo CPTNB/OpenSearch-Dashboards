@@ -31,24 +31,27 @@
 import { createMemoryHistory } from 'history';
 
 // Only import types from '.' to avoid triggering default Jest mocks.
-import { CoreContext, PluginInitializerContext, AppMountParameters } from '.';
+import { AppMountParameters, CoreContext, PluginInitializerContext } from '.';
 // Import values from their individual modules instead.
 import { ScopedHistory } from './application';
 
 import { applicationServiceMock } from './application/application_service.mock';
 import { chromeServiceMock } from './chrome/chrome_service.mock';
+import { contextServiceMock } from './context/context_service.mock';
 import { docLinksServiceMock } from './doc_links/doc_links_service.mock';
 import { fatalErrorsServiceMock } from './fatal_errors/fatal_errors_service.mock';
 import { httpServiceMock } from './http/http_service.mock';
 import { i18nServiceMock } from './i18n/i18n_service.mock';
+import { injectedMetadataServiceMock } from './injected_metadata/injected_metadata_service.mock';
 import { notificationServiceMock } from './notifications/notifications_service.mock';
 import { overlayServiceMock } from './overlays/overlay_service.mock';
-import { uiSettingsServiceMock } from './ui_settings/ui_settings_service.mock';
 import { savedObjectsServiceMock } from './saved_objects/saved_objects_service.mock';
-import { contextServiceMock } from './context/context_service.mock';
-import { injectedMetadataServiceMock } from './injected_metadata/injected_metadata_service.mock';
+import { uiSettingsServiceMock } from './ui_settings/ui_settings_service.mock';
 import { workspacesServiceMock } from './workspace/workspaces_service.mock';
+import { keyboardShortcutServiceMock } from './keyboard_shortcut/keyboard_shortcut_service.mock';
 
+export { applicationServiceMock } from './application/application_service.mock';
+export { scopedHistoryMock } from './application/scoped_history.mock';
 export { chromeServiceMock } from './chrome/chrome_service.mock';
 export { docLinksServiceMock } from './doc_links/doc_links_service.mock';
 export { fatalErrorsServiceMock } from './fatal_errors/fatal_errors_service.mock';
@@ -57,11 +60,10 @@ export { i18nServiceMock } from './i18n/i18n_service.mock';
 export { injectedMetadataServiceMock } from './injected_metadata/injected_metadata_service.mock';
 export { notificationServiceMock } from './notifications/notifications_service.mock';
 export { overlayServiceMock } from './overlays/overlay_service.mock';
-export { uiSettingsServiceMock } from './ui_settings/ui_settings_service.mock';
 export { savedObjectsServiceMock } from './saved_objects/saved_objects_service.mock';
-export { scopedHistoryMock } from './application/scoped_history.mock';
-export { applicationServiceMock } from './application/application_service.mock';
+export { uiSettingsServiceMock } from './ui_settings/ui_settings_service.mock';
 export { workspacesServiceMock } from './workspace/workspaces_service.mock';
+export { keyboardShortcutServiceMock } from './keyboard_shortcut/keyboard_shortcut_service.mock';
 
 function createCoreSetupMock({
   basePath = '',
@@ -89,6 +91,7 @@ function createCoreSetupMock({
       getBranding: injectedMetadataServiceMock.createSetupContract().getBranding,
     },
     workspaces: workspacesServiceMock.createSetupContract(),
+    keyboardShortcut: keyboardShortcutServiceMock.createSetup(),
   };
 
   return mock;
@@ -111,6 +114,7 @@ function createCoreStartMock({ basePath = '' } = {}) {
     },
     fatalErrors: fatalErrorsServiceMock.createStartContract(),
     workspaces: workspacesServiceMock.createStartContract(),
+    keyboardShortcut: keyboardShortcutServiceMock.createStart(),
   };
 
   return mock;
@@ -185,6 +189,12 @@ function createAppMountParametersMock(appBasePath = '') {
     history,
     onAppLeave: jest.fn(),
     setHeaderActionMenu: jest.fn(),
+    setHeaderLeftControls: jest.fn(),
+    setHeaderCenterControls: jest.fn(),
+    setHeaderRightControls: jest.fn(),
+    setHeaderBadgeControls: jest.fn(),
+    setHeaderDescriptionControls: jest.fn(),
+    setHeaderBottomControls: jest.fn(),
   };
 
   return params;

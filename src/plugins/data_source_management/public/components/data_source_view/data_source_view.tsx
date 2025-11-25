@@ -9,6 +9,7 @@ import {
   SavedObjectsClientContract,
   ToastsStart,
   ApplicationStart,
+  UiSettingScope,
 } from 'opensearch-dashboards/public';
 import { IUiSettingsClient } from 'src/core/public';
 import { DataSourceBaseState, DataSourceOption } from '../data_source_menu/types';
@@ -30,6 +31,7 @@ interface DataSourceViewProps {
   fullWidth: boolean;
   selectedOption: DataSourceOption[];
   hideLocalCluster: boolean;
+  scope: UiSettingScope;
   application?: ApplicationStart;
   savedObjectsClient?: SavedObjectsClientContract;
   notifications?: ToastsStart;
@@ -72,7 +74,8 @@ export class DataSourceView extends React.Component<DataSourceViewProps, DataSou
     const option = selectedOption[0];
     const optionId = option.id;
 
-    const defaultDataSource = getDefaultDataSourceId(this.props.uiSettings) ?? null;
+    const defaultDataSource =
+      (await getDefaultDataSourceId(this.props.uiSettings, this.props.scope)) ?? null;
     if (optionId === '' && !this.props.hideLocalCluster) {
       this.setState({
         selectedOption: [LocalCluster],
@@ -82,11 +85,7 @@ export class DataSourceView extends React.Component<DataSourceViewProps, DataSou
       return;
     }
 
-    if (
-      (optionId === '' && this.props.hideLocalCluster) ||
-      (this.props.dataSourceFilter &&
-        this.props.selectedOption.filter(this.props.dataSourceFilter).length === 0)
-    ) {
+    if (optionId === '' && this.props.hideLocalCluster) {
       this.setState({
         selectedOption: [],
       });
@@ -100,6 +99,17 @@ export class DataSourceView extends React.Component<DataSourceViewProps, DataSou
           optionId,
           this.props.savedObjectsClient!
         );
+        if (
+          this.props.dataSourceFilter &&
+          [selectedDataSource].filter(this.props.dataSourceFilter).length === 0
+        ) {
+          this.setState({
+            selectedOption: [],
+          });
+          this.onSelectedDataSources([]);
+          return;
+        }
+
         if (!this._isMounted) return;
         this.setState({
           selectedOption: [{ id: optionId, label: selectedDataSource.title }],
@@ -167,6 +177,7 @@ export class DataSourceView extends React.Component<DataSourceViewProps, DataSou
             className={'dataSourceView'}
             label={label}
             onClick={this.onClick.bind(this)}
+            isDisabled
           />
         }
         isOpen={this.state.isPopoverOpen}
@@ -178,6 +189,7 @@ export class DataSourceView extends React.Component<DataSourceViewProps, DataSou
         <EuiContextMenuPanel className={'dataSourceViewOuiPanel'}>
           <EuiPanel color="subdued" paddingSize="none" borderRadius="none">
             <EuiSelectable
+              // @ts-expect-error TS2322 TODO(ts-error): fixme
               options={options}
               singleSelection={true}
               data-test-subj={'dataSourceView'}

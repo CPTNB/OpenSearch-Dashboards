@@ -190,6 +190,7 @@ export function createPluginSetupContext<TPlugin, TPluginDependencies>(
       basePath: deps.http.basePath,
       auth: { get: deps.http.auth.get, isAuthenticated: deps.http.auth.isAuthenticated },
       csp: deps.http.csp,
+      cspReportOnly: deps.http.cspReportOnly,
       getServerInfo: deps.http.getServerInfo,
     },
     logging: {
@@ -221,6 +222,12 @@ export function createPluginSetupContext<TPlugin, TPluginDependencies>(
     getStartServices: () => plugin.startDependencies,
     auditTrail: deps.auditTrail,
     security: deps.security,
+    dynamicConfigService: {
+      registerDynamicConfigClientFactory: deps.dynamicConfig.registerDynamicConfigClientFactory,
+      registerAsyncLocalStoreRequestHeader: deps.dynamicConfig.registerAsyncLocalStoreRequestHeader,
+      getStartService: deps.dynamicConfig.getStartService,
+    },
+    workspace: deps.workspace,
   };
 }
 
@@ -272,5 +279,11 @@ export function createPluginStartContext<TPlugin, TPluginDependencies>(
     auditTrail: deps.auditTrail,
     coreUsageData: deps.coreUsageData,
     crossCompatibility: deps.crossCompatibility,
+    dynamicConfig: {
+      getAsyncLocalStore: deps.dynamicConfig.getAsyncLocalStore,
+      getClient: deps.dynamicConfig.getClient,
+      createStoreFromRequest: deps.dynamicConfig.createStoreFromRequest,
+    },
+    workspace: deps.workspace,
   };
 }

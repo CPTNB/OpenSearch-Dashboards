@@ -28,7 +28,11 @@
  * under the License.
  */
 
-import { IFieldType, IIndexPattern } from '../../../common/index_patterns';
+import { monaco } from '@osd/monaco';
+import { IFieldType, IndexPattern } from '../../../common/index_patterns';
+import { DataView as Dataset } from '../../../common/data_views';
+
+import { IDataPluginServices } from '../../types';
 
 export enum QuerySuggestionTypes {
   Field = 'field',
@@ -45,12 +49,16 @@ export type QuerySuggestionGetFn = (
 /** @public **/
 export interface QuerySuggestionGetFnArgs {
   language: string;
-  indexPatterns: IIndexPattern[];
+  indexPattern: IndexPattern | Dataset | undefined;
+  datasetType?: string;
   query: string;
   selectionStart: number;
   selectionEnd: number;
   signal?: AbortSignal;
   boolFilter?: any;
+  position?: monaco.Position;
+  services?: IDataPluginServices;
+  baseLanguage?: string; // Used to enrich the Prompt mode Suggestions with Commands from base language
 }
 
 /** @public **/
@@ -61,6 +69,9 @@ export interface QuerySuggestionBasic {
   start: number;
   text: string;
   cursorIndex?: number;
+  sortText?: string;
+  documentation?: string;
+  insertText?: string;
 }
 
 /** @public **/
@@ -69,5 +80,20 @@ export interface QuerySuggestionField extends QuerySuggestionBasic {
   field: IFieldType;
 }
 
+export interface MonacoCompatibleQuerySuggestion
+  extends Pick<QuerySuggestionBasic, 'description' | 'cursorIndex'> {
+  type: monaco.languages.CompletionItemKind;
+  text: string;
+  detail: string;
+  insertText?: string;
+  insertTextRules?: monaco.languages.CompletionItemInsertTextRule;
+  replacePosition?: monaco.Range;
+  sortText?: string;
+  documentation?: string;
+}
+
 /** @public **/
-export type QuerySuggestion = QuerySuggestionBasic | QuerySuggestionField;
+export type QuerySuggestion =
+  | QuerySuggestionBasic
+  | QuerySuggestionField
+  | MonacoCompatibleQuerySuggestion;

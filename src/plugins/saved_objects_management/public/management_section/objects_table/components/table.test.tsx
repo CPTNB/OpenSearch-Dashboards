@@ -30,6 +30,7 @@
 
 import React from 'react';
 import { shallowWithI18nProvider, mountWithI18nProvider } from 'test_utils/enzyme_helpers';
+// @ts-expect-error TS2306 TODO(ts-error): fixme
 import { findTestSubject } from '@elastic/eui/lib/test';
 import { keys } from '@elastic/eui';
 import { httpServiceMock } from '../../../../../../core/public/mocks';
@@ -38,7 +39,9 @@ import { columnServiceMock } from '../../../services/column_service.mock';
 import { SavedObjectsManagementAction } from '../../..';
 import { Table, TableProps } from './table';
 import { WorkspaceAttribute } from 'opensearch-dashboards/public';
+import { render } from '@testing-library/react';
 
+// @ts-expect-error TS2739 TODO(ts-error): fixme
 const defaultProps: TableProps = {
   basePath: httpServiceMock.createSetupContract().basePath,
   actionRegistry: actionServiceMock.createStart(),
@@ -107,11 +110,26 @@ const defaultProps: TableProps = {
   isSearching: false,
   onShowRelationships: () => {},
   canDelete: true,
+  onDuplicate: () => {},
+  onDuplicateSingle: () => {},
+  showDuplicate: false,
+  useUpdatedUX: false,
+  isDatasetManagementEnabled: false,
 };
 
 describe('Table', () => {
   it('should render normally', () => {
     const component = shallowWithI18nProvider(<Table {...defaultProps} />);
+
+    expect(component).toMatchSnapshot();
+  });
+
+  it('should render normally when use updated UX', () => {
+    const props = {
+      ...defaultProps,
+      useUpdatedUX: true,
+    };
+    const component = shallowWithI18nProvider(<Table {...props} />);
 
     expect(component).toMatchSnapshot();
   });
@@ -223,5 +241,122 @@ describe('Table', () => {
     expect(onActionRefresh).not.toHaveBeenCalled();
     someAction.onClick();
     expect(onActionRefresh).toHaveBeenCalled();
+  });
+
+  it('should call onDuplicateSingle when show duplicate', () => {
+    const onDuplicateSingle = jest.fn();
+    const showDuplicate = true;
+    const customizedProps = { ...defaultProps, onDuplicateSingle, showDuplicate };
+    const component = shallowWithI18nProvider(<Table {...customizedProps} />);
+    expect(component).toMatchSnapshot();
+
+    const table = component.find('EuiBasicTable');
+    const columns = table.prop('columns') as any[];
+    const actionColumn = columns.find((x) => x.hasOwnProperty('actions')) as { actions: any[] };
+    const duplicateAction = actionColumn.actions.find(
+      (x) => x['data-test-subj'] === 'savedObjectsTableAction-duplicate'
+    );
+
+    expect(onDuplicateSingle).not.toHaveBeenCalled();
+    duplicateAction.onClick();
+    expect(onDuplicateSingle).toHaveBeenCalled();
+  });
+
+  it('should replace legacy path to standard application path when useUpdatedUX is true', () => {
+    const showDuplicate = true;
+    const customizedProps = {
+      ...defaultProps,
+      showDuplicate,
+      useUpdatedUX: true,
+      items: [
+        {
+          id: '1',
+          type: 'index-pattern',
+          attributes: {},
+          references: [],
+          meta: {
+            title: `MyIndexPattern*`,
+            icon: 'indexPatternApp',
+            editUrl: '#/management/opensearch-dashboards/indexPatterns/patterns/1',
+            inAppUrl: {
+              path: '/app/management/opensearch-dashboards/indexPatterns/patterns/1',
+              uiCapabilitiesPath: 'management.opensearchDashboards.indexPatterns',
+            },
+          },
+        },
+      ],
+    };
+    const { getByTestId } = render(<Table {...customizedProps} />);
+    expect(
+      getByTestId('savedObjectsTableRowTitle').querySelector(
+        '[href="/app/indexPatterns/patterns/1"]'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('should decode encoded URLs in inAppUrl path', () => {
+    const item = {
+      id: 'index-pattern-1',
+      type: 'index-pattern',
+      attributes: {},
+      references: [],
+      meta: {
+        title: `MyIndexPattern*`,
+        icon: 'indexPatternApp',
+        editUrl: '#/management/opensearch-dashboards/indexPatterns/patterns/1',
+        inAppUrl: {
+          path:
+            '/app/management/opensearch-dashboards/indexPatterns/patterns/bed098d0-4c7d-11f0-9c24-f31368ce9197%3A%3Aotel_v1_apm_span_sample_1',
+          uiCapabilitiesPath: 'management.opensearchDashboards.indexPatterns',
+        },
+      },
+    };
+    const customizedProps = {
+      ...defaultProps,
+      useUpdatedUX: true,
+      items: [item],
+    };
+    const { getByTestId } = render(<Table {...customizedProps} />);
+    expect(
+      getByTestId('savedObjectsTableRowTitle').querySelector(
+        '[href="/app/indexPatterns/patterns/bed098d0-4c7d-11f0-9c24-f31368ce9197::otel_v1_apm_span_sample_1"]'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('should decode encoded URLs in workspace context', () => {
+    const item = {
+      id: 'index-pattern-1',
+      type: 'index-pattern',
+      workspaces: ['ws-1'],
+      attributes: {},
+      references: [],
+      meta: {
+        title: `MyIndexPattern*`,
+        icon: 'indexPatternApp',
+        editUrl: '#/management/opensearch-dashboards/indexPatterns/patterns/1',
+        inAppUrl: {
+          path:
+            '/app/management/opensearch-dashboards/indexPatterns/patterns/bed098d0-4c7d-11f0-9c24-f31368ce9197%3A%3Aotel_v1_apm_span_sample_1',
+          uiCapabilitiesPath: 'management.opensearchDashboards.indexPatterns',
+        },
+      },
+    };
+    const props = {
+      ...defaultProps,
+      useUpdatedUX: true,
+      availableWorkspaces: [{ id: 'ws-1', name: 'My workspace' } as WorkspaceAttribute],
+      items: [item],
+    };
+    const component = shallowWithI18nProvider(<Table {...props} />);
+
+    const table = component.find('EuiBasicTable');
+    const columns = table.prop<
+      Array<{ render: (id: string, record: unknown) => React.ReactElement }>
+    >('columns');
+    const content = columns[1].render('MyIndexPattern*', item);
+    expect(content.props.href).toEqual(
+      'http://localhost/w/ws-1/app/indexPatterns/patterns/bed098d0-4c7d-11f0-9c24-f31368ce9197::otel_v1_apm_span_sample_1'
+    );
   });
 });

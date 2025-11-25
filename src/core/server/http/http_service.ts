@@ -36,10 +36,11 @@ import { pick } from '@osd/std';
 import { CoreService } from '../../types';
 import { Logger, LoggerFactory } from '../logging';
 import { ContextSetup } from '../context';
-import { Env } from '../config';
+import { Env, InternalDynamicConfigServiceStart } from '../config';
 import { CoreContext } from '../core_context';
 import { PluginOpaqueId } from '../plugins';
 import { CspConfigType, config as cspConfig } from '../csp';
+import { CspReportOnlyConfigType, config as cspReportOnlyConfig } from '../csp_report_only';
 
 import { Router } from './router';
 import { HttpConfig, HttpConfigType, config as httpConfig } from './http_config';
@@ -58,6 +59,10 @@ import { registerCoreHandlers } from './lifecycle_handlers';
 
 export interface SetupDeps {
   context: ContextSetup;
+}
+
+export interface StartDeps {
+  dynamicConfigService: InternalDynamicConfigServiceStart;
 }
 
 /** @internal */
@@ -84,7 +89,8 @@ export class HttpService
     this.config$ = combineLatest([
       configService.atPath<HttpConfigType>(httpConfig.path),
       configService.atPath<CspConfigType>(cspConfig.path),
-    ]).pipe(map(([http, csp]) => new HttpConfig(http, csp)));
+      configService.atPath<CspReportOnlyConfigType>(cspReportOnlyConfig.path),
+    ]).pipe(map(([http, csp, cspReportOnly]) => new HttpConfig(http, csp, cspReportOnly)));
     this.httpServer = new HttpServer(logger, 'OpenSearchDashboards');
     this.httpsRedirectServer = new HttpsRedirectServer(logger.get('http', 'redirect', 'server'));
   }
@@ -140,7 +146,7 @@ export class HttpService
     };
   }
 
-  public async start() {
+  public async start(deps: StartDeps) {
     const config = await this.config$.pipe(first()).toPromise();
     if (this.shouldListen(config)) {
       if (this.notReadyServer) {
@@ -154,7 +160,7 @@ export class HttpService
         await this.httpsRedirectServer.start(config);
       }
 
-      await this.httpServer.start();
+      await this.httpServer.start(deps.dynamicConfigService);
     }
 
     return this.getStartContract();

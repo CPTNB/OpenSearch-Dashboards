@@ -32,7 +32,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   EuiAccordion,
   EuiToolTip,
-  EuiButtonIcon,
+  EuiSmallButtonIcon,
   EuiButtonIconProps,
   EuiSpacer,
   EuiIconTip,
@@ -254,7 +254,7 @@ function DefaultEditorAgg({
 
           return (
             <EuiToolTip key={icon.id} position="bottom" content={icon.tooltip}>
-              <EuiButtonIcon
+              <EuiSmallButtonIcon
                 disabled={icon.disabled}
                 iconType={icon.type}
                 color={icon.color as EuiButtonIconProps['color']}
@@ -296,6 +296,7 @@ function DefaultEditorAgg({
         {SchemaComponent && (
           <SchemaComponent
             agg={agg}
+            // @ts-expect-error TS2322 TODO(ts-error): fixme
             editorStateParams={state.params}
             setAggParamValue={setAggParamValue}
             setStateParamValue={setStateParamValue}

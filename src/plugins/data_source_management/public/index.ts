@@ -3,15 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { PluginInitializerContext } from '../../../core/public';
 import { DataSourceManagementPlugin } from './plugin';
 
 // This exports static code and TypeScript types,
 // as well as, OpenSearch Dashboards Platform `plugin()` initializer.
-export function plugin() {
-  return new DataSourceManagementPlugin();
+export function plugin(initializerContext: PluginInitializerContext) {
+  return new DataSourceManagementPlugin(initializerContext);
 }
 
-export { DataSourceManagementPluginStart } from './types';
+export { DataSourceManagementPluginStart, DirectQueryDatasourceDetails } from './types';
 export { DataSourceSelector, DataSourceOption } from './components/data_source_selector';
 export { DataSourceMenu } from './components/data_source_menu';
 export { DataSourceManagementPlugin, DataSourceManagementPluginSetup } from './plugin';
@@ -26,3 +27,5 @@ export {
 } from './components/data_source_menu';
 export { DataSourceSelectionService } from './service/data_source_selection_service';
 export { getDefaultDataSourceId, getDefaultDataSourceId$ } from './components/utils';
+export { DATACONNECTIONS_BASE, DatasourceTypeToDisplayName } from './constants';
+export { DEFAULT_DATA_SOURCE_UI_SETTINGS_ID } from '../common';

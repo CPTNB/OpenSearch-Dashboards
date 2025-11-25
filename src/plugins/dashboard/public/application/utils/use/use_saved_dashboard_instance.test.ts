@@ -38,6 +38,7 @@ describe('useSavedDashboardInstance', () => {
         getFilters: () => dashboardAppStateStub.filters,
         optionsJSON: JSON.stringify(dashboardAppStateStub.options),
         getFullPath: () => `/${dashboardIdFromUrl}`,
+        getOpenSearchType: () => 'dashboard',
       },
     } as unknown) as SavedObjectDashboard;
     dashboard = new Dashboard(convertToSerializedDashboard(savedDashboardInstance));
@@ -81,6 +82,7 @@ describe('useSavedDashboardInstance', () => {
 
   describe('should set saved dashboard instance', () => {
     test('if dashboardIdFromUrl is set', async () => {
+      // @ts-expect-error TS7034 TODO(ts-error): fixme
       let hook;
 
       await act(async () => {
@@ -94,6 +96,7 @@ describe('useSavedDashboardInstance', () => {
         );
       });
 
+      // @ts-expect-error TS7005 TODO(ts-error): fixme
       expect(hook!.result.current).toEqual({
         savedDashboard: savedDashboardInstance,
         dashboard,
@@ -102,6 +105,7 @@ describe('useSavedDashboardInstance', () => {
     });
 
     test('if dashboardIdFromUrl is set and updated', async () => {
+      // @ts-expect-error TS7034 TODO(ts-error): fixme
       let hook;
 
       // Force current dashboardIdFromUrl to be different
@@ -137,6 +141,7 @@ describe('useSavedDashboardInstance', () => {
         hook.rerender({ hookDashboardIdFromUrl: dashboardIdFromUrlNext });
       });
 
+      // @ts-expect-error TS7005 TODO(ts-error): fixme
       expect(hook!.result.current).toEqual({
         savedDashboard: saveDashboardInstanceNext,
         dashboard: dashboardNext,
@@ -145,6 +150,7 @@ describe('useSavedDashboardInstance', () => {
     });
 
     test('if dashboard is being created', async () => {
+      // @ts-expect-error TS7034 TODO(ts-error): fixme
       let hook;
       mockServices.history.location.pathname = '/create';
 
@@ -159,6 +165,7 @@ describe('useSavedDashboardInstance', () => {
         );
       });
 
+      // @ts-expect-error TS7005 TODO(ts-error): fixme
       expect(hook!.result.current).toEqual({
         savedDashboard: savedDashboardInstance,
         dashboard,
@@ -169,6 +176,7 @@ describe('useSavedDashboardInstance', () => {
 
   describe('handle errors', () => {
     test('if dashboardIdFromUrl is set', async () => {
+      // @ts-expect-error TS7034 TODO(ts-error): fixme
       let hook;
       getDashboardInstance.mockImplementation(() => {
         throw new SavedObjectNotFound('dashboard');
@@ -185,6 +193,7 @@ describe('useSavedDashboardInstance', () => {
         );
       });
 
+      // @ts-expect-error TS7005 TODO(ts-error): fixme
       expect(hook!.result.current).toEqual({});
       expect(getDashboardInstance).toBeCalledWith(mockServices, dashboardIdFromUrl);
       expect(mockServices.notifications.toasts.addDanger).toBeCalled();
@@ -192,6 +201,7 @@ describe('useSavedDashboardInstance', () => {
     });
 
     test('if dashboard is being created', async () => {
+      // @ts-expect-error TS7034 TODO(ts-error): fixme
       let hook;
       getDashboardInstance.mockImplementation(() => {
         throw new Error();
@@ -209,11 +219,13 @@ describe('useSavedDashboardInstance', () => {
         );
       });
 
+      // @ts-expect-error TS7005 TODO(ts-error): fixme
       expect(hook!.result.current).toEqual({});
       expect(getDashboardInstance).toBeCalledWith(mockServices);
     });
 
     test('if legacy dashboard is being created', async () => {
+      // @ts-expect-error TS7034 TODO(ts-error): fixme
       let hook;
       getDashboardInstance.mockImplementation(() => {
         throw new SavedObjectNotFound('dashboard');
@@ -230,6 +242,7 @@ describe('useSavedDashboardInstance', () => {
         );
       });
 
+      // @ts-expect-error TS7005 TODO(ts-error): fixme
       expect(hook!.result.current).toEqual({});
       expect(getDashboardInstance).toBeCalledWith(mockServices, 'create');
       expect(mockServices.notifications.toasts.addWarning).toBeCalled();

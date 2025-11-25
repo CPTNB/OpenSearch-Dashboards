@@ -40,8 +40,10 @@ import {
   VisualizeEditorVisInstance,
 } from '../types';
 import { APP_NAME } from '../visualize_constants';
-import { getTopNavConfig } from '../utils';
+import { getTopNavConfig, getNavActions, getLegacyTopNavConfig } from '../utils';
+import { VisualizeTopNavIds } from '../utils/constants';
 import type { IndexPattern } from '../../../../data/public';
+import { TopNavMenuItemRenderType } from '../../../../navigation/public';
 
 interface VisualizeTopNavProps {
   currentAppState: VisualizeAppState;
@@ -76,7 +78,7 @@ const TopNav = ({
 }: VisualizeTopNavProps) => {
   const { services } = useOpenSearchDashboards<VisualizeServices>();
   const { TopNavMenu } = services.navigation.ui;
-  const { setHeaderActionMenu, visualizeCapabilities } = services;
+  const { setHeaderActionMenu, visualizeCapabilities, keyboardShortcut } = services;
   const { embeddableHandler, vis } = visInstance;
   const [inspectorSession, setInspectorSession] = useState<OverlayRef>();
   const openInspector = useCallback(() => {
@@ -92,26 +94,87 @@ const TopNav = ({
     [visInstance.embeddableHandler]
   );
   const stateTransfer = services.embeddable.getStateTransfer();
+  const showActionsInGroup = services.uiSettings.get('home:useNewHomePage');
+  const navActions = getNavActions(
+    {
+      hasUnsavedChanges,
+      setHasUnsavedChanges,
+      hasUnappliedChanges,
+      openInspector,
+      originatingApp,
+      setOriginatingApp,
+      visInstance,
+      stateContainer,
+      visualizationIdFromUrl,
+      stateTransfer,
+      embeddableId,
+      onAppLeave,
+    },
+    services
+  );
+
+  const handleSave = useCallback(() => {
+    if (navActions[VisualizeTopNavIds.SAVE]) {
+      // Create a dummy element for keyboard shortcut calls since saveAction expects an anchorElement
+      const dummyElement = document.createElement('div');
+      navActions[VisualizeTopNavIds.SAVE](dummyElement);
+    }
+  }, [navActions]);
+
+  keyboardShortcut?.useKeyboardShortcut({
+    id: 'save_visualization',
+    pluginId: 'visualize',
+    name: i18n.translate('visualize.topNav.saveVisualizationShortcut', {
+      defaultMessage: 'Save visualization',
+    }),
+    category: i18n.translate('visualize.topNav.editingCategory', {
+      defaultMessage: 'Data actions',
+    }),
+    keys: 'cmd+s',
+    execute: handleSave,
+  });
 
   const config = useMemo(() => {
     if (isEmbeddableRendered) {
-      return getTopNavConfig(
-        {
-          hasUnsavedChanges,
-          setHasUnsavedChanges,
-          hasUnappliedChanges,
-          openInspector,
-          originatingApp,
-          setOriginatingApp,
-          visInstance,
-          stateContainer,
-          visualizationIdFromUrl,
-          stateTransfer,
-          embeddableId,
-          onAppLeave,
-        },
-        services
-      );
+      if (showActionsInGroup) {
+        return getTopNavConfig(
+          {
+            hasUnsavedChanges,
+            setHasUnsavedChanges,
+            hasUnappliedChanges,
+            openInspector,
+            originatingApp,
+            setOriginatingApp,
+            visInstance,
+            stateContainer,
+            visualizationIdFromUrl,
+            stateTransfer,
+            embeddableId,
+            onAppLeave,
+          },
+          services,
+          navActions
+        );
+      } else {
+        return getLegacyTopNavConfig(
+          {
+            hasUnsavedChanges,
+            setHasUnsavedChanges,
+            hasUnappliedChanges,
+            openInspector,
+            originatingApp,
+            setOriginatingApp,
+            visInstance,
+            stateContainer,
+            visualizationIdFromUrl,
+            stateTransfer,
+            embeddableId,
+            onAppLeave,
+          },
+          services,
+          navActions
+        );
+      }
     }
   }, [
     isEmbeddableRendered,
@@ -128,6 +191,8 @@ const TopNav = ({
     embeddableId,
     stateTransfer,
     onAppLeave,
+    showActionsInGroup,
+    navActions,
   ]);
   const [indexPatterns, setIndexPatterns] = useState<IndexPattern[]>(
     vis.data.indexPattern ? [vis.data.indexPattern] : []
@@ -216,14 +281,20 @@ const TopNav = ({
       savedQueryId={currentAppState.savedQuery}
       onSavedQueryIdChange={stateContainer.transitions.updateSavedQuery}
       indexPatterns={indexPatterns}
-      screenTitle={vis.title}
+      screenTitle={
+        vis.title ||
+        i18n.translate('visualize.savedSearch.newTitle', {
+          defaultMessage: 'New visualization',
+        })
+      }
       showAutoRefreshOnly={!showDatePicker()}
       showDatePicker={showDatePicker()}
       showFilterBar={showFilterBar}
       showQueryInput={showQueryInput}
       showSaveQuery={services.visualizeCapabilities.saveQuery}
-      showSearchBar
+      showSearchBar={TopNavMenuItemRenderType.IN_PORTAL}
       useDefaultBehaviors
+      groupActions={showActionsInGroup}
     />
   ) : showFilterBar ? (
     /**
@@ -234,7 +305,7 @@ const TopNav = ({
       appName={APP_NAME}
       setMenuMountPoint={setHeaderActionMenu}
       indexPatterns={indexPatterns}
-      showSearchBar
+      showSearchBar={TopNavMenuItemRenderType.IN_PORTAL}
       showSaveQuery={false}
       showDatePicker={false}
       showQueryInput={false}

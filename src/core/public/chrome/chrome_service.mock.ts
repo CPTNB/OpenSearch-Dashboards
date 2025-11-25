@@ -36,12 +36,21 @@ import { getLogosMock } from '../../common/mocks';
 const createSetupContractMock = () => {
   return {
     registerCollapsibleNavHeader: jest.fn(),
+    navGroup: {
+      addNavLinksToGroup: jest.fn(),
+      getNavGroupEnabled: jest.fn(),
+      registerNavGroupUpdater: jest.fn(),
+    },
+    globalSearch: {
+      registerSearchCommand: jest.fn(),
+    },
   };
 };
 
 const createStartContractMock = () => {
   const startContract: DeeplyMockedKeys<InternalChromeStart> = {
     getHeaderComponent: jest.fn(),
+    useUpdatedHeader: false,
     navLinks: {
       getNavLinks$: jest.fn(),
       has: jest.fn(),
@@ -66,13 +75,31 @@ const createStartContractMock = () => {
       registerLeft: jest.fn(),
       registerCenter: jest.fn(),
       registerRight: jest.fn(),
+      registerLeftBottom: jest.fn(),
+      registerPrimaryHeaderRight: jest.fn(),
       getLeft$: jest.fn(),
       getCenter$: jest.fn(),
       getRight$: jest.fn(),
+      getLeftBottom$: jest.fn(),
+      getPrimaryHeaderRight$: jest.fn(),
+    },
+    navGroup: {
+      getNavGroupsMap$: jest.fn(() => new BehaviorSubject({})),
+      getNavGroupEnabled: jest.fn(),
+      getCurrentNavGroup$: jest.fn(() => new BehaviorSubject(undefined)),
+      setCurrentNavGroup: jest.fn(),
+    },
+    globalSearch: {
+      getAllSearchCommands: jest.fn(() => []),
+      unregisterSearchCommand: jest.fn(),
+      getAllSearchCommands$: jest.fn(() => new BehaviorSubject([])),
+      registerSearchCommand: jest.fn(),
     },
     setAppTitle: jest.fn(),
     setIsVisible: jest.fn(),
     getIsVisible$: jest.fn(),
+    setHeaderVariant: jest.fn(),
+    getHeaderVariant$: jest.fn(),
     addApplicationClass: jest.fn(),
     removeApplicationClass: jest.fn(),
     getApplicationClasses$: jest.fn(),
@@ -80,21 +107,27 @@ const createStartContractMock = () => {
     setBadge: jest.fn(),
     getBreadcrumbs$: jest.fn(),
     setBreadcrumbs: jest.fn(),
+    getBreadcrumbsEnricher$: jest.fn(),
+    setBreadcrumbsEnricher: jest.fn(),
     getHelpExtension$: jest.fn(),
     setHelpExtension: jest.fn(),
     setHelpSupportUrl: jest.fn(),
     getIsNavDrawerLocked$: jest.fn(),
     getCustomNavLink$: jest.fn(),
     setCustomNavLink: jest.fn(),
+    getGlobalBanner$: jest.fn(),
+    setGlobalBanner: jest.fn(),
   };
   startContract.navLinks.getAll.mockReturnValue([]);
   startContract.getIsVisible$.mockReturnValue(new BehaviorSubject(false));
+  startContract.getHeaderVariant$.mockReturnValue(new BehaviorSubject(undefined));
   startContract.getApplicationClasses$.mockReturnValue(new BehaviorSubject(['class-name']));
   startContract.getBadge$.mockReturnValue(new BehaviorSubject({} as ChromeBadge));
   startContract.getBreadcrumbs$.mockReturnValue(new BehaviorSubject([{} as ChromeBreadcrumb]));
   startContract.getCustomNavLink$.mockReturnValue(new BehaviorSubject(undefined));
   startContract.getHelpExtension$.mockReturnValue(new BehaviorSubject(undefined));
   startContract.getIsNavDrawerLocked$.mockReturnValue(new BehaviorSubject(false));
+  startContract.getGlobalBanner$.mockReturnValue(new BehaviorSubject(undefined));
   return startContract;
 };
 

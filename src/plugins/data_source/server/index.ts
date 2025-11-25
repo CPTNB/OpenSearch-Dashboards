@@ -13,6 +13,7 @@ export const config: PluginConfigDescriptor<DataSourcePluginConfigType> = {
     hideLocalCluster: true,
     authTypes: true,
   },
+  // @ts-expect-error TS2322 TODO(ts-error): fixme
   schema: configSchema,
 };
 
@@ -24,5 +25,4 @@ export {
   DataSourcePluginSetup,
   DataSourcePluginStart,
   DataSourcePluginRequestContext,
-  DataSourceError,
 } from './types';

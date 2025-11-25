@@ -40,6 +40,11 @@ import {
 } from './opensearch';
 import { Auditor } from './audit_trail';
 import { InternalUiSettingsServiceStart, IUiSettingsClient } from './ui_settings';
+import {
+  AsyncLocalStorageContext,
+  IDynamicConfigurationClient,
+  InternalDynamicConfigServiceStart,
+} from './config';
 
 class CoreOpenSearchRouteHandlerContext {
   #client?: IScopedClusterClient;
@@ -109,12 +114,38 @@ class CoreUiSettingsRouteHandlerContext {
   }
 }
 
+class CoreDynamicConfigRouteHandlerContext {
+  #client?: IDynamicConfigurationClient;
+  #asyncLocalStore?: AsyncLocalStorageContext;
+  #createStoreFromRequest?: (
+    req: OpenSearchDashboardsRequest
+  ) => AsyncLocalStorageContext | undefined;
+
+  constructor(private readonly dynamicConfigServiceStart: InternalDynamicConfigServiceStart) {}
+
+  public get client() {
+    this.#client = this.dynamicConfigServiceStart.getClient();
+    return this.#client;
+  }
+
+  public get asyncLocalStore() {
+    this.#asyncLocalStore = this.dynamicConfigServiceStart.getAsyncLocalStore();
+    return this.#asyncLocalStore;
+  }
+
+  public createStoreFromRequest(req: OpenSearchDashboardsRequest) {
+    this.#createStoreFromRequest = this.dynamicConfigServiceStart.createStoreFromRequest;
+    return this.#createStoreFromRequest(req);
+  }
+}
+
 export class CoreRouteHandlerContext {
   #auditor?: Auditor;
 
   readonly opensearch: CoreOpenSearchRouteHandlerContext;
   readonly savedObjects: CoreSavedObjectsRouteHandlerContext;
   readonly uiSettings: CoreUiSettingsRouteHandlerContext;
+  readonly dynamicConfig: CoreDynamicConfigRouteHandlerContext;
 
   constructor(
     private readonly coreStart: InternalCoreStart,
@@ -132,6 +163,7 @@ export class CoreRouteHandlerContext {
       this.coreStart.uiSettings,
       this.savedObjects
     );
+    this.dynamicConfig = new CoreDynamicConfigRouteHandlerContext(this.coreStart.dynamicConfig);
   }
 
   public get auditor() {

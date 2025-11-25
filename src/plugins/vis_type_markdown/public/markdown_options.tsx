@@ -33,8 +33,9 @@ import {
   EuiPanel,
   EuiTitle,
   EuiLink,
+  // @ts-expect-error TS6133 TODO(ts-error): fixme
   EuiIcon,
-  EuiTextArea,
+  EuiCompressedTextArea,
   EuiFlexGroup,
   EuiFlexItem,
   EuiText,
@@ -80,7 +81,7 @@ function MarkdownOptions({ stateParams, setValue }: VisOptionsProps<MarkdownVisP
         </EuiFlexItem>
 
         <EuiFlexItem>
-          <EuiTextArea
+          <EuiCompressedTextArea
             id="markdownVisInput"
             className="eui-fullHeight"
             value={stateParams.markdown}

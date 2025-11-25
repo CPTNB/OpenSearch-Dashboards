@@ -49,6 +49,7 @@ export interface PanelHeaderProps {
   title?: string;
   isViewMode: boolean;
   hidePanelTitle: boolean;
+  hidePanelAction: boolean;
   getActionContextMenuPanel: () => Promise<EuiContextMenuPanelDescriptor[]>;
   closeContextMenu: boolean;
   badges: Array<Action<EmbeddableContext>>;
@@ -65,6 +66,7 @@ function renderBadges(badges: Array<Action<EmbeddableContext>>, embeddable: IEmb
       className="embPanel__headerBadge"
       iconType={badge.getIconType({ embeddable, trigger: panelBadgeTrigger })}
       onClick={() => badge.execute({ embeddable, trigger: panelBadgeTrigger })}
+      // @ts-expect-error TS2322 TODO(ts-error): fixme
       onClickAriaLabel={badge.getDisplayName({ embeddable, trigger: panelBadgeTrigger })}
     >
       {badge.getDisplayName({ embeddable, trigger: panelBadgeTrigger })}
@@ -129,6 +131,7 @@ export function PanelHeader({
   title,
   isViewMode,
   hidePanelTitle,
+  hidePanelAction,
   getActionContextMenuPanel,
   closeContextMenu,
   badges,
@@ -166,12 +169,14 @@ export function PanelHeader({
   if (!showPanelBar) {
     return (
       <div className={classes}>
-        <PanelOptionsMenu
-          getActionContextMenuPanel={getActionContextMenuPanel}
-          isViewMode={isViewMode}
-          closeContextMenu={closeContextMenu}
-          title={title}
-        />
+        {!hidePanelAction && (
+          <PanelOptionsMenu
+            getActionContextMenuPanel={getActionContextMenuPanel}
+            isViewMode={isViewMode}
+            closeContextMenu={closeContextMenu}
+            title={title}
+          />
+        )}
         <EuiScreenReaderOnly>{getAriaLabel()}</EuiScreenReaderOnly>
       </div>
     );
@@ -210,12 +215,14 @@ export function PanelHeader({
         {renderBadges(badges, embeddable)}
       </h2>
       {renderNotifications(notifications, embeddable)}
-      <PanelOptionsMenu
-        isViewMode={isViewMode}
-        getActionContextMenuPanel={getActionContextMenuPanel}
-        closeContextMenu={closeContextMenu}
-        title={title}
-      />
+      {!hidePanelAction && (
+        <PanelOptionsMenu
+          isViewMode={isViewMode}
+          getActionContextMenuPanel={getActionContextMenuPanel}
+          closeContextMenu={closeContextMenu}
+          title={title}
+        />
+      )}
     </figcaption>
   );
 }

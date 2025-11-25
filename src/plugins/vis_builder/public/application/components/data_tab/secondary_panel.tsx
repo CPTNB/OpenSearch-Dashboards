@@ -28,7 +28,7 @@ export function SecondaryPanel() {
   const { draftAgg, aggConfigParams } = useTypedSelector(
     (state) => state.visualization.activeVisualization!
   );
-  const isEditorValid = useTypedSelector((state) => !state.metadata.editor.errors[PANEL_KEY]);
+  const isEditorValid = useTypedSelector((state) => !state.metadata.editor.errors?.[PANEL_KEY]);
   const [touched, setTouched] = useState(false);
   const dispatch = useTypedDispatch();
   const vizType = useVisualizationType();
@@ -172,6 +172,7 @@ class EditorErrorBoundary extends Component<{}, { error?: any }> {
     return { error };
   }
 
+  // @ts-expect-error TS7006 TODO(ts-error): fixme
   componentDidCatch(error) {
     // eslint-disable-next-line no-console
     console.error(error);

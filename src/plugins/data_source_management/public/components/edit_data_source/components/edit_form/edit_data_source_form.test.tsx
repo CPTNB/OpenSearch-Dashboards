@@ -36,6 +36,7 @@ const usernameFormRowIdentifier = '[data-test-subj="editDatasourceUsernameFormRo
 const passwordFieldIdentifier = '[data-test-subj="updateDataSourceFormPasswordField"]';
 const updatePasswordBtnIdentifier = '[data-test-subj="editDatasourceUpdatePasswordBtn"]';
 const updateAwsCredsBtnIdentifier = '[data-test-subj="editDatasourceUpdateAwsCredentialBtn"]';
+// @ts-expect-error TS6133 TODO(ts-error): fixme
 const regionFieldIdentifier = 'dataSourceRegion';
 const accessKeyFieldIdentifier = 'dataSourceAccessKey';
 const accessKeyFormRowIdentifier = '[data-test-subj="editDataSourceFormAccessKeyField"]';
@@ -81,6 +82,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
     beforeEach(() => {
       component = mount(
         wrapWithIntl(
+          // @ts-expect-error TS2739 TODO(ts-error): fixme
           <EditDataSourceForm
             existingDataSource={mockDataSourceAttributesWithAuth}
             existingDatasourceNamesList={existingDatasourceNamesList}
@@ -90,6 +92,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             onSetDefaultDataSource={mockFn}
             handleTestConnection={mockFn}
             displayToastMessage={mockFn}
+            canManageDataSource={true}
           />
         ),
         {
@@ -192,6 +195,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             // @ts-ignore
             component.find(descriptionFormRowIdentifier).first().props().isInvalid
           ).toBeUndefined();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -211,6 +215,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             .find('[data-test-subj="datasource-edit-cancelButton"]')
             .first()
             .simulate('click');
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -225,6 +230,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             // @ts-ignore
             component.find(descriptionFormRowIdentifier).first().props().isInvalid
           ).toBeUndefined();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -242,6 +248,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
           );
           component.find('[data-test-subj="datasource-edit-saveButton"]').first().simulate('click');
           expect(mockFn).toHaveBeenCalled();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -253,6 +260,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
       component = mount(
         wrapWithIntl(
           <EditDataSourceForm
+            // @ts-expect-error TS2322 TODO(ts-error): fixme
             existingDataSource={mockDataSourceAttributesWithNoAuth}
             existingDatasourceNamesList={existingDatasourceNamesList}
             isDefault={false}
@@ -261,6 +269,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             handleSubmit={mockFn}
             handleTestConnection={mockFn}
             displayToastMessage={mockFn}
+            canManageDataSource={true}
           />
         ),
         {
@@ -328,6 +337,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             // @ts-ignore
             component.find(descriptionFormRowIdentifier).first().props().isInvalid
           ).toBeUndefined();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -345,6 +355,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
           );
           component.find('[data-test-subj="datasource-edit-saveButton"]').first().simulate('click');
           expect(mockFn).toHaveBeenCalled();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -365,6 +376,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
       component = mount(
         wrapWithIntl(
           <EditDataSourceForm
+            // @ts-expect-error TS2741 TODO(ts-error): fixme
             existingDataSource={mockDataSourceAttributesWithSigV4Auth}
             existingDatasourceNamesList={existingDatasourceNamesList}
             isDefault={false}
@@ -373,6 +385,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             onSetDefaultDataSource={mockFn}
             handleTestConnection={mockFn}
             displayToastMessage={mockFn}
+            canManageDataSource={true}
           />
         ),
         {
@@ -490,6 +503,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             // @ts-ignore
             component.find(descriptionFormRowIdentifier).first().props().isInvalid
           ).toBeUndefined();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -509,6 +523,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             .find('[data-test-subj="datasource-edit-cancelButton"]')
             .first()
             .simulate('click');
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -523,6 +538,7 @@ describe('Datasource Management: Edit Datasource Form', () => {
             // @ts-ignore
             component.find(descriptionFormRowIdentifier).first().props().isInvalid
           ).toBeUndefined();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
@@ -540,9 +556,122 @@ describe('Datasource Management: Edit Datasource Form', () => {
           );
           component.find('[data-test-subj="datasource-edit-saveButton"]').first().simulate('click');
           expect(mockFn).toHaveBeenCalled();
+          // @ts-expect-error TS2794 TODO(ts-error): fixme
           resolve();
         }, 100)
       );
+    });
+  });
+
+  describe('Case 4: With Cross Cluster Connection Alias', () => {
+    beforeEach(() => {
+      component = mount(
+        wrapWithIntl(
+          <EditDataSourceForm
+            // @ts-expect-error TS2322 TODO(ts-error): fixme
+            existingDataSource={mockDataSourceAttributesWithNoAuth}
+            existingDatasourceNamesList={existingDatasourceNamesList}
+            isDefault={false}
+            onDeleteDataSource={mockFn}
+            handleSubmit={mockFn}
+            onSetDefaultDataSource={mockFn}
+            handleTestConnection={mockFn}
+            displayToastMessage={mockFn}
+            canManageDataSource={true}
+            crossClusterConnectionAlias="test-cluster"
+          />
+        ),
+        {
+          wrappingComponent: OpenSearchDashboardsContextProvider,
+          wrappingComponentProps: {
+            services: mockedContext,
+          },
+        }
+      );
+      component.update();
+    });
+
+    test('should render connection alias section instead of endpoint and authentication sections', () => {
+      // Connection alias section should be visible
+      expect(component.contains('Connection alias')).toBe(true);
+      expect(component.contains('test-cluster')).toBe(true);
+
+      // Endpoint section should not be visible
+      expect(component.find(endpointFieldIdentifier).exists()).toBe(false);
+
+      // Authentication section should not be visible
+      expect(component.find(authTypeSelectIdentifier).exists()).toBe(false);
+    });
+
+    test('should display cluster information correctly', () => {
+      // Check if type is displayed
+      expect(component.contains('OpenSearch (Cross cluster search)')).toBe(true);
+
+      // Check if source cluster name is displayed
+      expect(component.contains(mockDataSourceAttributesWithNoAuth.title)).toBe(true);
+    });
+
+    test('should not show bottom bar when cross cluster connection exists', () => {
+      // Bottom bar should not be present when cross cluster connection exists
+      expect(component.find('[data-test-subj="datasource-edit-bottomBar"]').exists()).toBe(false);
+    });
+  });
+
+  describe('Case 5: Cross Cluster Connection Error Cases', () => {
+    beforeEach(() => {
+      component = mount(
+        wrapWithIntl(
+          <EditDataSourceForm
+            // @ts-expect-error TS2322 TODO(ts-error): fixme
+            existingDataSource={mockDataSourceAttributesWithNoAuth}
+            existingDatasourceNamesList={existingDatasourceNamesList}
+            isDefault={false}
+            onDeleteDataSource={mockFn}
+            handleSubmit={mockFn}
+            onSetDefaultDataSource={mockFn}
+            handleTestConnection={mockFn}
+            displayToastMessage={mockFn}
+            canManageDataSource={true}
+            crossClusterConnectionAlias="test:cluster"
+          />
+        ),
+        {
+          wrappingComponent: OpenSearchDashboardsContextProvider,
+          wrappingComponentProps: {
+            services: mockedContext,
+          },
+        }
+      );
+      component.update();
+    });
+
+    test('should not allow editing when data source is not manageable', () => {
+      component = mount(
+        wrapWithIntl(
+          <EditDataSourceForm
+            // @ts-expect-error TS2322 TODO(ts-error): fixme
+            existingDataSource={mockDataSourceAttributesWithNoAuth}
+            existingDatasourceNamesList={existingDatasourceNamesList}
+            isDefault={false}
+            onDeleteDataSource={mockFn}
+            handleSubmit={mockFn}
+            onSetDefaultDataSource={mockFn}
+            handleTestConnection={mockFn}
+            displayToastMessage={mockFn}
+            canManageDataSource={false}
+            crossClusterConnectionAlias="test-cluster"
+          />
+        ),
+        {
+          wrappingComponent: OpenSearchDashboardsContextProvider,
+          wrappingComponentProps: {
+            services: mockedContext,
+          },
+        }
+      );
+      component.update();
+
+      expect(component.find('[data-test-subj="datasource-edit-saveButton"]').exists()).toBe(false);
     });
   });
 });
@@ -585,6 +714,7 @@ describe('With Registered Authentication', () => {
     component = mount(
       wrapWithIntl(
         <EditDataSourceForm
+          // @ts-expect-error TS2741 TODO(ts-error): fixme
           existingDataSource={mockDataSourceAttributesWithNoAuth}
           existingDatasourceNamesList={existingDatasourceNamesList}
           isDefault={false}
@@ -593,6 +723,7 @@ describe('With Registered Authentication', () => {
           onSetDefaultDataSource={jest.fn()}
           handleTestConnection={jest.fn()}
           displayToastMessage={jest.fn()}
+          canManageDataSource={true}
         />
       ),
       {
@@ -625,6 +756,7 @@ describe('With Registered Authentication', () => {
 
     component = mount(
       wrapWithIntl(
+        // @ts-expect-error TS2739 TODO(ts-error): fixme
         <EditDataSourceForm
           existingDataSource={mockDataSourceAttributesWithRegisteredAuth}
           existingDatasourceNamesList={existingDatasourceNamesList}
@@ -634,6 +766,7 @@ describe('With Registered Authentication', () => {
           onSetDefaultDataSource={jest.fn()}
           handleTestConnection={jest.fn()}
           displayToastMessage={jest.fn()}
+          canManageDataSource={true}
         />
       ),
       {
@@ -648,8 +781,10 @@ describe('With Registered Authentication', () => {
       setTimeout(() => {
         updateInputFieldAndBlur(component, descriptionFieldIdentifier, '');
         expect(
+          // @ts-expect-error TS2339 TODO(ts-error): fixme
           component.find(descriptionFormRowIdentifier).first().props().isInvalid
         ).toBeUndefined();
+        // @ts-expect-error TS2794 TODO(ts-error): fixme
         resolve();
       }, 100)
     );
@@ -658,12 +793,14 @@ describe('With Registered Authentication', () => {
         /* Updated description*/
         updateInputFieldAndBlur(component, descriptionFieldIdentifier, 'testDescription');
         expect(
+          // @ts-expect-error TS2339 TODO(ts-error): fixme
           component.find(descriptionFormRowIdentifier).first().props().isInvalid
         ).toBeUndefined();
 
         expect(component.find('[data-test-subj="datasource-edit-saveButton"]').exists()).toBe(true);
         component.find('[data-test-subj="datasource-edit-saveButton"]').first().simulate('click');
         expect(mockedSubmitHandler).toHaveBeenCalled();
+        // @ts-expect-error TS2794 TODO(ts-error): fixme
         resolve();
       }, 100)
     );

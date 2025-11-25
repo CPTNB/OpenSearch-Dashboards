@@ -35,7 +35,7 @@ import {
   EuiSwitchEvent,
   EuiFlexGroup,
   EuiFlexItem,
-  EuiButtonEmpty,
+  EuiSmallButtonEmpty,
 } from '@elastic/eui';
 import { i18n } from '@osd/i18n';
 import { FormattedMessage } from '@osd/i18n/react';
@@ -115,6 +115,7 @@ export const canPreselectTimeField = (indices: MatchedItem[]) => {
 export class StepIndexPattern extends Component<StepIndexPatternProps, StepIndexPatternState> {
   static contextType = contextType;
 
+  // @ts-expect-error TS2612 TODO(ts-error): fixme
   public readonly context!: IndexPatternManagmentContextValue;
 
   state = {
@@ -300,12 +301,12 @@ export class StepIndexPattern extends Component<StepIndexPatternProps, StepIndex
     return (
       <EuiFlexGroup justifyContent="flexEnd">
         <EuiFlexItem grow={false}>
-          <EuiButtonEmpty iconType="arrowLeft" onClick={goToPreviousStep}>
+          <EuiSmallButtonEmpty iconType="arrowLeft" onClick={goToPreviousStep}>
             <FormattedMessage
               id="indexPatternManagement.createIndexPattern.stepIndexPattern.backButton"
               defaultMessage="Back"
             />
-          </EuiButtonEmpty>
+          </EuiSmallButtonEmpty>
         </EuiFlexItem>
       </EuiFlexGroup>
     );

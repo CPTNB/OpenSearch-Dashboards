@@ -78,7 +78,6 @@ import {
   IDataFrame,
   IDataFrameResponse,
   createDataFrameCache,
-  dataFrameToSpec,
 } from '../../common';
 
 type StrategyMap = Record<string, ISearchStrategy<any, any>>;
@@ -212,40 +211,20 @@ export class SearchService implements Plugin<ISearchSetup, ISearchStart> {
             searchSourceRequiredUiSettings
           );
 
+          // @ts-expect-error TS2741 TODO(ts-error): fixme
           const dfService: DataFrameService = {
             get: () => this.dfCache.get(),
-            set: async (dataFrame: IDataFrame) => {
-              if (this.dfCache.get() && this.dfCache.get()?.name !== dataFrame.name) {
-                scopedIndexPatterns.clearCache(this.dfCache.get()!.name, false);
-              }
-              if (
-                dataFrame.meta &&
-                dataFrame.meta.queryConfig &&
-                'dataSource' in dataFrame.meta.queryConfig
-              ) {
-                const dataSource = await scopedIndexPatterns.findDataSourceByTitle(
-                  dataFrame.meta.queryConfig.dataSource
-                );
-                dataFrame.meta.queryConfig.dataSourceId = dataSource?.id;
-              }
+            set: (dataFrame: IDataFrame) => {
               this.dfCache.set(dataFrame);
-              const existingIndexPattern = scopedIndexPatterns.getByTitle(dataFrame.name!, true);
-              const dataSet = await scopedIndexPatterns.create(
-                dataFrameToSpec(dataFrame, existingIndexPattern?.id),
-                !existingIndexPattern?.id
-              );
-              // save to cache by title because the id is not unique for temporary index pattern created
-              scopedIndexPatterns.saveToCache(dataSet.title, dataSet);
             },
             clear: () => {
               if (this.dfCache.get() === undefined) return;
-              // name because the id is not unique for temporary index pattern created
-              scopedIndexPatterns.clearCache(this.dfCache.get()!.name, false);
               this.dfCache.clear();
             },
           };
 
           const searchSourceDependencies: SearchSourceDependencies = {
+            // @ts-expect-error TS7053 TODO(ts-error): fixme
             getConfig: <T = any>(key: string): T => uiSettingsCache[key],
             search: (searchRequest, options) => {
               /**

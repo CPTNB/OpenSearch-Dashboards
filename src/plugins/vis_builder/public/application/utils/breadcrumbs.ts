@@ -10,6 +10,7 @@ const defaultEditText = i18n.translate('visBuilder.editor.defaultEditBreadcrumbT
   defaultMessage: 'Edit',
 });
 
+// @ts-expect-error TS7006 TODO(ts-error): fixme
 export function getVisualizeLandingBreadcrumbs(navigateToApp) {
   return [
     {
@@ -21,17 +22,23 @@ export function getVisualizeLandingBreadcrumbs(navigateToApp) {
   ];
 }
 
-export function getCreateBreadcrumbs(navigateToApp) {
+// @ts-expect-error TS7006 TODO(ts-error): fixme
+export function getCreateBreadcrumbs(navigateToApp, isMigrated: boolean) {
   return [
     ...getVisualizeLandingBreadcrumbs(navigateToApp),
     {
-      text: i18n.translate('visBuilder.editor.createBreadcrumb', {
-        defaultMessage: 'Create',
-      }),
+      text: isMigrated
+        ? i18n.translate('visBuilder.editor.newVisualizationBreadcrumb', {
+            defaultMessage: 'New visualization',
+          })
+        : i18n.translate('visBuilder.editor.createBreadcrumb', {
+            defaultMessage: 'Create',
+          }),
     },
   ];
 }
 
+// @ts-expect-error TS7006 TODO(ts-error): fixme
 export function getEditBreadcrumbs(text: string = defaultEditText, navigateToApp) {
   return [
     ...getVisualizeLandingBreadcrumbs(navigateToApp),

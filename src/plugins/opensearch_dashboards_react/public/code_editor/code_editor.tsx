@@ -34,7 +34,7 @@ import MonacoEditor from 'react-monaco-editor';
 
 import { monaco } from '@osd/monaco';
 
-import { LIGHT_THEME, DARK_THEME } from './editor_theme';
+import { LIGHT_THEME, DARK_THEME, DEFAULT_DARK_THEME, DEAFULT_LIGHT_THEME } from './editor_theme';
 
 import './editor.scss';
 
@@ -57,35 +57,35 @@ export interface Props {
   /**
    * Options for the Monaco Code Editor
    * Documentation of options can be found here:
-   * https://microsoft.github.io/monaco-editor/api/interfaces/monaco.editor.ieditorconstructionoptions.html
+   * https://microsoft.github.io/monaco-editor/docs.html#interfaces/editor.IEditorConstructionOptions.html
    */
   options?: monaco.editor.IEditorConstructionOptions;
 
   /**
    * Suggestion provider for autocompletion
    * Documentation for the provider can be found here:
-   * https://microsoft.github.io/monaco-editor/api/interfaces/monaco.languages.completionitemprovider.html
+   * https://microsoft.github.io/monaco-editor/docs.html#interfaces/languages.CompletionItemProvider.html
    */
   suggestionProvider?: monaco.languages.CompletionItemProvider;
 
   /**
    * Signature provider for function parameter info
    * Documentation for the provider can be found here:
-   * https://microsoft.github.io/monaco-editor/api/interfaces/monaco.languages.signaturehelpprovider.html
+   * https://microsoft.github.io/monaco-editor/docs.html#interfaces/languages.SignatureHelpProvider.html
    */
   signatureProvider?: monaco.languages.SignatureHelpProvider;
 
   /**
    * Hover provider for hover documentation
    * Documentation for the provider can be found here:
-   * https://microsoft.github.io/monaco-editor/api/interfaces/monaco.languages.hoverprovider.html
+   * https://microsoft.github.io/monaco-editor/docs.html#interfaces/languages.HoverProvider.html
    */
   hoverProvider?: monaco.languages.HoverProvider;
 
   /**
    * Language config provider for bracket
    * Documentation for the provider can be found here:
-   * https://microsoft.github.io/monaco-editor/api/interfaces/monaco.languages.languageconfiguration.html
+   * https://microsoft.github.io/monaco-editor/docs.html#interfaces/languages.LanguageConfiguration.html
    */
   languageConfiguration?: monaco.languages.LanguageConfiguration;
 
@@ -108,6 +108,16 @@ export interface Props {
    * Should the editor use the dark theme
    */
   useDarkTheme?: boolean;
+
+  /**
+   * Whether the suggestion widget/window will be triggered upon clicking into the editor
+   */
+  triggerSuggestOnFocus?: boolean;
+
+  /**
+   * Should the editor use latest theme variations for dark and light theme. By default it is false and editor uses default themes
+   */
+  useLatestTheme?: boolean;
 }
 
 export class CodeEditor extends React.Component<Props, {}> {
@@ -127,35 +137,17 @@ export class CodeEditor extends React.Component<Props, {}> {
       this.props.editorWillMount();
     }
 
-    monaco.languages.onLanguage(this.props.languageId, () => {
-      if (this.props.suggestionProvider) {
-        monaco.languages.registerCompletionItemProvider(
-          this.props.languageId,
-          this.props.suggestionProvider
-        );
-      }
-
-      if (this.props.signatureProvider) {
-        monaco.languages.registerSignatureHelpProvider(
-          this.props.languageId,
-          this.props.signatureProvider
-        );
-      }
-
-      if (this.props.hoverProvider) {
-        monaco.languages.registerHoverProvider(this.props.languageId, this.props.hoverProvider);
-      }
-
-      if (this.props.languageConfiguration) {
-        monaco.languages.setLanguageConfiguration(
-          this.props.languageId,
-          this.props.languageConfiguration
-        );
-      }
-    });
-
     // Register the theme
-    monaco.editor.defineTheme('euiColors', this.props.useDarkTheme ? DARK_THEME : LIGHT_THEME);
+    monaco.editor.defineTheme(
+      'euiColors',
+      this.props.useLatestTheme
+        ? this.props.useDarkTheme
+          ? DARK_THEME
+          : LIGHT_THEME
+        : this.props.useDarkTheme
+        ? DEFAULT_DARK_THEME
+        : DEAFULT_LIGHT_THEME
+    );
   };
 
   _editorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, __monaco: unknown) => {
@@ -168,10 +160,47 @@ export class CodeEditor extends React.Component<Props, {}> {
     if (this.props.editorDidMount) {
       this.props.editorDidMount(editor);
     }
+
+    if (this.props.triggerSuggestOnFocus) {
+      editor.onDidFocusEditorWidget(() => {
+        editor.trigger('keyboard', 'editor.action.triggerSuggest', {});
+      });
+    }
+
+    editor.onMouseDown((e) => {
+      if (e.target.position) {
+        e.event.preventDefault(); // Prevent Monaco's default focus handling
+        editor.setPosition(e.target.position!);
+        editor.revealPosition(e.target.position!);
+        editor.focus();
+      }
+    });
+
+    // Show the documentation panel by default
+    const suggestController = editor.getContribution('editor.contrib.suggestController') as any;
+    suggestController.widget.value._setDetailsVisible(true);
   };
 
   render() {
     const { languageId, value, onChange, width, height, options } = this.props;
+
+    monaco.languages.onLanguage(languageId, () => {
+      if (this.props.suggestionProvider) {
+        monaco.languages.registerCompletionItemProvider(languageId, this.props.suggestionProvider);
+      }
+
+      if (this.props.signatureProvider) {
+        monaco.languages.registerSignatureHelpProvider(languageId, this.props.signatureProvider);
+      }
+
+      if (this.props.hoverProvider) {
+        monaco.languages.registerHoverProvider(languageId, this.props.hoverProvider);
+      }
+
+      if (this.props.languageConfiguration) {
+        monaco.languages.setLanguageConfiguration(languageId, this.props.languageConfiguration);
+      }
+    });
 
     return (
       <React.Fragment>

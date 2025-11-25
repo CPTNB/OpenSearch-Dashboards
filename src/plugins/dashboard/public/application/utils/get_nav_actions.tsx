@@ -5,7 +5,7 @@
 
 import React, { ReactElement, useState } from 'react';
 import { i18n } from '@osd/i18n';
-import { EUI_MODAL_CANCEL_BUTTON, EuiCheckboxGroup } from '@elastic/eui';
+import { EUI_MODAL_CANCEL_BUTTON, EuiCompressedCheckboxGroup } from '@elastic/eui';
 import { EuiCheckboxGroupIdToSelectedMap } from '@elastic/eui/src/components/form/checkbox/checkbox_group';
 import {
   SaveResult,
@@ -33,6 +33,7 @@ import { DashboardContainer } from '../embeddable/dashboard_container';
 import { DashboardConstants, createDashboardEditUrl } from '../../dashboard_constants';
 import { unhashUrl } from '../../../../opensearch_dashboards_utils/public';
 import { Dashboard } from '../../dashboard';
+import { showAddPanelPopover } from '../components/dashboard_top_nav/top_nav/show_add_panel_popover';
 
 interface UrlParamsSelectedMap {
   [UrlParams.SHOW_TOP_MENU]: boolean;
@@ -166,18 +167,49 @@ export const getNavActions = (
     showCloneModal(onClone, currentTitle);
   };
 
-  navActions[TopNavIds.ADD_EXISTING] = () => {
-    if (currentContainer && !isErrorEmbeddable(currentContainer)) {
-      openAddPanelFlyout({
-        embeddable: currentContainer,
-        getAllFactories: embeddable.getEmbeddableFactories,
-        getFactory: embeddable.getEmbeddableFactory,
-        notifications,
-        overlays,
-        SavedObjectFinder: getSavedObjectFinder(savedObjects, uiSettings),
-      });
-    }
-  };
+  if (uiSettings.get('home:useNewHomePage')) {
+    navActions[TopNavIds.ADD_EXISTING] = (anchorElement) => {
+      if (currentContainer && !isErrorEmbeddable(currentContainer)) {
+        showAddPanelPopover({
+          anchorElement,
+          uiActions: services.uiActions,
+          onAddExistingPanelFlyout: () => {
+            openAddPanelFlyout({
+              embeddable: currentContainer,
+              getAllFactories: embeddable.getEmbeddableFactories,
+              getFactory: embeddable.getEmbeddableFactory,
+              notifications,
+              overlays,
+              SavedObjectFinder: getSavedObjectFinder(
+                savedObjects,
+                uiSettings,
+                services.data,
+                services.application
+              ),
+            });
+          },
+        });
+      }
+    };
+  } else {
+    navActions[TopNavIds.ADD_EXISTING] = () => {
+      if (currentContainer && !isErrorEmbeddable(currentContainer)) {
+        openAddPanelFlyout({
+          embeddable: currentContainer,
+          getAllFactories: embeddable.getEmbeddableFactories,
+          getFactory: embeddable.getEmbeddableFactory,
+          notifications,
+          overlays,
+          SavedObjectFinder: getSavedObjectFinder(
+            savedObjects,
+            uiSettings,
+            services.data,
+            services.application
+          ),
+        });
+      }
+    };
+  }
 
   navActions[TopNavIds.VISUALIZE] = async () => {
     const type = 'visualization';
@@ -265,7 +297,7 @@ export const getNavActions = (
         };
 
         return (
-          <EuiCheckboxGroup
+          <EuiCompressedCheckboxGroup
             options={checkboxes}
             idToSelectedMap={(urlParamsSelectedMap as unknown) as EuiCheckboxGroupIdToSelectedMap}
             onChange={handleChange}
@@ -308,6 +340,7 @@ export const getNavActions = (
 
     // If there are no changes, do not show the discard window
     if (!willLoseChanges) {
+      overlays.closeFlyout();
       stateContainer.transitions.set('viewMode', newMode);
       return;
     }
@@ -348,6 +381,8 @@ export const getNavActions = (
           queryService.timefilter.timefilter.setRefreshInterval(dashboard.refreshInterval);
         }
       }
+
+      overlays.closeFlyout();
 
       // Set the isDirty flag back to false since we discard all the changes
       dashboard.setIsDirty(false);

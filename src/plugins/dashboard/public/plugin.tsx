@@ -34,6 +34,9 @@ import { filter, map } from 'rxjs/operators';
 import { i18n } from '@osd/i18n';
 import { FormattedMessage } from '@osd/i18n/react';
 
+import { UrlForwardingSetup, UrlForwardingStart } from 'src/plugins/url_forwarding/public';
+import { isEmpty } from 'lodash';
+import { createHashHistory } from 'history';
 import {
   App,
   AppMountParameters,
@@ -43,11 +46,9 @@ import {
   Plugin,
   PluginInitializerContext,
   SavedObjectsClientContract,
+  WorkspaceAvailability,
   ScopedHistory,
-} from 'src/core/public';
-import { UrlForwardingSetup, UrlForwardingStart } from 'src/plugins/url_forwarding/public';
-import { isEmpty } from 'lodash';
-import { createHashHistory } from 'history';
+} from '../../../../src/core/public';
 import { UsageCollectionSetup } from '../../usage_collection/public';
 import {
   CONTEXT_MENU_TRIGGER,
@@ -84,7 +85,7 @@ import {
   OpenSearchDashboardsLegacyStart,
 } from '../../opensearch_dashboards_legacy/public';
 import { FeatureCatalogueCategory, HomePublicPluginSetup } from '../../../plugins/home/public';
-import { DEFAULT_APP_CATEGORIES } from '../../../core/public';
+import { DEFAULT_APP_CATEGORIES, DEFAULT_NAV_GROUPS } from '../../../core/public';
 
 import {
   ACTION_CLONE_PANEL,
@@ -126,6 +127,7 @@ import {
   ATTRIBUTE_SERVICE_KEY,
 } from './attribute_service/attribute_service';
 import { DashboardProvider, DashboardServices } from './types';
+import { bootstrap } from './ui_triggers';
 
 declare module '../../share/public' {
   export interface UrlGeneratorStateMapping {
@@ -218,6 +220,9 @@ export class DashboardPlugin
     core: CoreSetup<StartDependencies, DashboardStart>,
     { share, uiActions, embeddable, home, urlForwarding, data, usageCollection }: SetupDependencies
   ): DashboardSetup {
+    // bootstrap UI Actions
+    bootstrap(uiActions);
+
     this.dashboardFeatureFlagConfig = this.initializerContext.config.get<
       DashboardFeatureFlagConfig
     >();
@@ -367,6 +372,7 @@ export class DashboardPlugin
       id: DashboardConstants.DASHBOARDS_ID,
       title: 'Dashboards',
       order: 2500,
+      workspaceAvailability: WorkspaceAvailability.insideWorkspace,
       euiIconType: 'inputOutput',
       defaultPath: `#${DashboardConstants.LANDING_PAGE_PATH}`,
       updater$: this.appStateUpdater,
@@ -401,6 +407,7 @@ export class DashboardPlugin
         const history = createHashHistory(); // need more research
         const services: DashboardServices = {
           ...coreStart,
+          uiActions: pluginsStart.uiActions,
           pluginInitializerContext: this.initializerContext,
           opensearchDashboardsVersion: this.initializerContext.env.packageInfo.version,
           history,
@@ -424,6 +431,7 @@ export class DashboardPlugin
           uiSettings: coreStart.uiSettings,
           savedQueryService: dataStart.query.savedQueries,
           embeddable: embeddableStart,
+          // @ts-expect-error TS2322 TODO(ts-error): fixme
           dashboardCapabilities: coreStart.application.capabilities.dashboard,
           embeddableCapabilities: {
             visualizeCapabilities: coreStart.application.capabilities.visualize,
@@ -452,6 +460,43 @@ export class DashboardPlugin
     };
 
     core.application.register(app);
+
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.observability, [
+      {
+        id: app.id,
+        order: 400,
+        category: undefined,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS['security-analytics'], [
+      {
+        id: app.id,
+        order: 400,
+        category: undefined,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.essentials, [
+      {
+        id: app.id,
+        order: 300,
+        category: undefined,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.search, [
+      {
+        id: app.id,
+        order: 300,
+        category: undefined,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.all, [
+      {
+        id: app.id,
+        order: 300,
+        category: undefined,
+      },
+    ]);
+
     urlForwarding.forwardApp(
       DashboardConstants.DASHBOARDS_ID,
       DashboardConstants.DASHBOARDS_ID,
@@ -530,7 +575,36 @@ export class DashboardPlugin
       embeddable,
     } = plugins;
 
-    const SavedObjectFinder = getSavedObjectFinder(core.savedObjects, core.uiSettings);
+    const SavedObjectFinder = getSavedObjectFinder(
+      core.savedObjects,
+      core.uiSettings,
+      plugins.data,
+      core.application
+    );
+
+    // Register dashboard navigation shortcuts only when workspace is available
+    if (core.keyboardShortcut) {
+      // Check if workspaces are initialized and available
+      const isInitialized = core.workspaces.initialized$.getValue();
+      const currentWorkspace = core.workspaces.currentWorkspace$.getValue();
+
+      if (isInitialized && currentWorkspace) {
+        core.keyboardShortcut.register({
+          id: 'nav.dashboard',
+          name: i18n.translate('dashboard.keyboardShortcut.goToDashboard.name', {
+            defaultMessage: 'Go to dashboard',
+          }),
+          pluginId: 'dashboard',
+          category: i18n.translate('dashboard.keyboardShortcut.category.navigation', {
+            defaultMessage: 'Navigation',
+          }),
+          keys: 'g b',
+          execute: () => {
+            core.application.navigateToApp('dashboards');
+          },
+        });
+      }
+    }
 
     const changeViewAction = new ReplacePanelAction(
       core,

@@ -43,7 +43,7 @@ import {
   getShardTimeout,
   shimAbortSignal,
 } from '..';
-import { decideClient } from './decide_client';
+import { decideClient } from '../../../../data_source/common/util/';
 
 export const opensearchSearchStrategyProvider = (
   config$: Observable<SharedGlobalConfig>,
@@ -79,6 +79,7 @@ export const opensearchSearchStrategyProvider = (
 
       try {
         const isOpenSearchHostsEmpty =
+          // @ts-expect-error TS2339 TODO(ts-error): fixme
           openSearchServiceSetup?.legacy?.client?.config?.hosts?.length === 0;
 
         if (dataSource?.dataSourceEnabled() && isOpenSearchHostsEmpty && !request.dataSourceId) {

@@ -29,7 +29,7 @@
  */
 
 import React, { useState } from 'react';
-import { EuiPopover } from '@elastic/eui';
+import { EuiDraggable, EuiPopover } from '@elastic/eui';
 
 import { IndexPatternField } from '../../../../../data/public';
 import {
@@ -45,11 +45,13 @@ import './field.scss';
 
 export interface FieldProps {
   field: IndexPatternField;
+  // @ts-expect-error TS7006 TODO(ts-error): fixme
   getDetails: (field) => FieldDetails;
+  id: number;
 }
 
 // TODO: Add field sections (Available fields, popular fields from src/plugins/discover/public/application/components/sidebar/discover_sidebar.tsx)
-export const Field = ({ field, getDetails }: FieldProps) => {
+export const Field = ({ field, getDetails, id }: FieldProps) => {
   const [infoIsOpen, setOpen] = useState(false);
 
   function togglePopover() {
@@ -60,11 +62,19 @@ export const Field = ({ field, getDetails }: FieldProps) => {
     <EuiPopover
       ownFocus
       display="block"
-      button={<DraggableFieldButton isActive={infoIsOpen} onClick={togglePopover} field={field} />}
+      button={
+        <DraggableFieldButton
+          isActive={infoIsOpen}
+          onClick={togglePopover}
+          field={field}
+          index={id}
+        />
+      }
       isOpen={infoIsOpen}
       closePopover={() => setOpen(false)}
       anchorPosition="rightUp"
       panelClassName="vbItem__fieldPopoverPanel"
+      panelPaddingSize="s"
       // TODO: make reposition on scroll actually work: https://github.com/opensearch-project/OpenSearch-Dashboards/issues/2782
       repositionOnScroll
       data-test-subj="field-popover"
@@ -77,9 +87,15 @@ export const Field = ({ field, getDetails }: FieldProps) => {
 export interface DraggableFieldButtonProps extends Partial<FieldButtonProps> {
   dragValue?: IndexPatternField['name'] | null | typeof COUNT_FIELD;
   field: Partial<IndexPatternField> & Pick<IndexPatternField, 'displayName' | 'name' | 'type'>;
+  index: number;
 }
 
-export const DraggableFieldButton = ({ dragValue, field, ...rest }: DraggableFieldButtonProps) => {
+export const DraggableFieldButton = ({
+  dragValue,
+  field,
+  index,
+  ...rest
+}: DraggableFieldButtonProps) => {
   const { name, displayName, type, scripted = false } = field;
   const [dragProps] = useDrag({
     namespace: 'field-data',
@@ -109,5 +125,14 @@ export const DraggableFieldButton = ({ dragValue, field, ...rest }: DraggableFie
     onClick: () => {},
   };
 
-  return <FieldButton {...defaultProps} {...rest} {...dragProps} />;
+  return (
+    <EuiDraggable
+      draggableId={name}
+      index={index}
+      disableInteractiveElementBlocking={true}
+      shouldRespectForcePress
+    >
+      <FieldButton {...defaultProps} {...rest} {...dragProps} />
+    </EuiDraggable>
+  );
 };

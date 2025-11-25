@@ -32,9 +32,14 @@ import React from 'react';
 import { ReactWrapper } from 'enzyme';
 import { act } from 'react-dom/test-utils';
 import { MountPoint } from 'opensearch-dashboards/public';
-import { TopNavMenu } from './top_nav_menu';
+import { mountWithIntl, shallowWithIntl } from 'test_utils/enzyme_helpers';
+import { TopNavMenu, TopNavMenuItemRenderType } from './top_nav_menu';
 import { TopNavMenuData } from './top_nav_menu_data';
-import { shallowWithIntl, mountWithIntl } from 'test_utils/enzyme_helpers';
+import {
+  applicationServiceMock,
+  uiSettingsServiceMock,
+  coreMock,
+} from '../../../../core/public/mocks';
 import * as testUtils from '../../../data_source_management/public/components/utils';
 import { DataSourceSelectionService } from '../../../data_source_management/public/service/data_source_selection_service';
 
@@ -44,6 +49,7 @@ const dataShim = {
   },
 };
 
+const mockWorkspaces = coreMock.createSetup().workspaces;
 describe('TopNavMenu', () => {
   const TOP_NAV_ITEM_SELECTOR = 'TopNavMenuItem';
   const SEARCH_BAR_SELECTOR = 'SearchBar';
@@ -125,6 +131,7 @@ describe('TopNavMenu', () => {
     spyOn(testUtils, 'getUiSettings').and.returnValue({ id: 'test2' });
     spyOn(testUtils, 'getHideLocalCluster').and.returnValue(true);
     spyOn(testUtils, 'getDataSourceSelection').and.returnValue(dataSourceSelection);
+    spyOn(testUtils, 'getWorkspaces').and.returnValue(mockWorkspaces);
     const component = shallowWithIntl(
       <TopNavMenu
         appName={'test'}
@@ -136,6 +143,7 @@ describe('TopNavMenu', () => {
             fullWidth: true,
             activeOption: [{ label: 'what', id: '1' }],
           },
+          // @ts-expect-error TS2322 TODO(ts-error): fixme
           dataSourceSelection,
         }}
       />
@@ -148,6 +156,7 @@ describe('TopNavMenu', () => {
     spyOn(testUtils, 'getApplication').and.returnValue({ id: 'test2' });
     spyOn(testUtils, 'getUiSettings').and.returnValue({ id: 'test2' });
     spyOn(testUtils, 'getHideLocalCluster').and.returnValue(true);
+    spyOn(testUtils, 'getWorkspaces').and.returnValue(mockWorkspaces);
     spyOn(testUtils, 'getDataSourceSelection').and.returnValue(dataSourceSelection);
 
     const component = shallowWithIntl(
@@ -162,6 +171,7 @@ describe('TopNavMenu', () => {
             fullWidth: true,
             activeOption: [{ label: 'what', id: '1' }],
           },
+          // @ts-expect-error TS2322 TODO(ts-error): fixme
           dataSourceSelection: new DataSourceSelectionService(),
         }}
       />
@@ -221,6 +231,166 @@ describe('TopNavMenu', () => {
 
       // menu is rendered outside of the component
       expect(component.find(TOP_NAV_ITEM_SELECTOR).length).toBe(0);
+    });
+
+    it('mounts the data source menu with group actions enabled', async () => {
+      spyOn(testUtils, 'getApplication').and.returnValue(applicationServiceMock);
+      spyOn(testUtils, 'getUiSettings').and.returnValue(
+        uiSettingsServiceMock.createStartContract()
+      );
+      spyOn(testUtils, 'getWorkspaces').and.returnValue(mockWorkspaces);
+      spyOn(testUtils, 'getHideLocalCluster').and.returnValue(true);
+      spyOn(testUtils, 'getDataSourceSelection').and.returnValue(dataSourceSelection);
+
+      const component = mountWithIntl(
+        <TopNavMenu
+          appName={'test'}
+          showDataSourceMenu={true}
+          config={menuItems}
+          dataSourceMenuConfig={{
+            componentType: 'DataSourceView',
+            componentConfig: {
+              hideLocalCluster: true,
+              fullWidth: true,
+              activeOption: [{ label: 'what', id: '1' }],
+            },
+            // @ts-expect-error TS2322 TODO(ts-error): fixme
+            dataSourceSelection: new DataSourceSelectionService(),
+          }}
+          groupActions={true}
+          setMenuMountPoint={setMountPoint}
+        />
+      );
+
+      act(() => {
+        mountPoint(portalTarget);
+      });
+
+      await refresh();
+      expect(component.find('.osdTopNavMenuScreenTitle').exists()).toBeFalsy();
+      expect(component.find(SEARCH_BAR_SELECTOR).length).toBe(0);
+    });
+
+    it('mounts without data source menu with group actions enabled and showSearchBar in portal', async () => {
+      spyOn(testUtils, 'getApplication').and.returnValue(applicationServiceMock);
+      spyOn(testUtils, 'getUiSettings').and.returnValue(
+        uiSettingsServiceMock.createStartContract()
+      );
+      spyOn(testUtils, 'getWorkspaces').and.returnValue(mockWorkspaces);
+      spyOn(testUtils, 'getHideLocalCluster').and.returnValue(false);
+      spyOn(testUtils, 'getDataSourceSelection').and.returnValue(dataSourceSelection);
+
+      const component = mountWithIntl(
+        <TopNavMenu
+          appName={'test'}
+          showDataSourceMenu={true}
+          config={menuItems}
+          showSearchBar={TopNavMenuItemRenderType.IN_PORTAL}
+          groupActions={true}
+          setMenuMountPoint={setMountPoint}
+        />
+      );
+
+      act(() => {
+        mountPoint(portalTarget);
+      });
+
+      await refresh();
+
+      await (() => {
+        expect(component.find(SEARCH_BAR_SELECTOR).length).toBe(1);
+        expect(component.find('.osdTopNavMenuScreenTitle').exists()).toBeTruthy();
+      });
+    });
+
+    it('mounts without data source menu with group actions enabled and showSearchBar in place', async () => {
+      spyOn(testUtils, 'getApplication').and.returnValue(applicationServiceMock);
+      spyOn(testUtils, 'getUiSettings').and.returnValue(
+        uiSettingsServiceMock.createStartContract()
+      );
+      spyOn(testUtils, 'getWorkspaces').and.returnValue(mockWorkspaces);
+      spyOn(testUtils, 'getHideLocalCluster').and.returnValue(false);
+      spyOn(testUtils, 'getDataSourceSelection').and.returnValue(dataSourceSelection);
+
+      const component = mountWithIntl(
+        <TopNavMenu
+          appName={'test'}
+          showDataSourceMenu={true}
+          config={menuItems}
+          showSearchBar={TopNavMenuItemRenderType.IN_PLACE}
+          groupActions={true}
+          setMenuMountPoint={setMountPoint}
+          showDatePicker={TopNavMenuItemRenderType.IN_PORTAL}
+        />
+      );
+
+      act(() => {
+        mountPoint(portalTarget);
+      });
+
+      await refresh();
+
+      await (() => {
+        expect(component.find(SEARCH_BAR_SELECTOR).length).toBe(1);
+        expect(component.find('.osdTopNavMenuScreenTitle').exists()).toBeTruthy();
+        expect(component.find('.globalDatePicker').exists()).toBeTruthy();
+      });
+    });
+  });
+
+  describe('customSubmitButton', () => {
+    it('should render customSubmitButton when showDatePicker is false', () => {
+      const customButton = <button data-test-subj="custom-submit-button">Custom Submit</button>;
+      const component = shallowWithIntl(
+        <TopNavMenu
+          appName={'test'}
+          config={menuItems}
+          showSearchBar={true}
+          showDatePicker={false}
+          customSubmitButton={customButton}
+          data={dataShim as any}
+          groupActions={true}
+          setMenuMountPoint={jest.fn()}
+        />
+      );
+
+      expect(component.find('.osdTopNavCustomSubmitButton').length).toBe(1);
+      expect(component.find('[data-test-subj="custom-submit-button"]').length).toBe(1);
+    });
+
+    it('should not render customSubmitButton when showDatePicker is true', () => {
+      const customButton = <button data-test-subj="custom-submit-button">Custom Submit</button>;
+      const component = shallowWithIntl(
+        <TopNavMenu
+          appName={'test'}
+          config={menuItems}
+          showSearchBar={true}
+          showDatePicker={TopNavMenuItemRenderType.IN_PORTAL}
+          customSubmitButton={customButton}
+          data={dataShim as any}
+          groupActions={true}
+          setMenuMountPoint={jest.fn()}
+        />
+      );
+
+      expect(component.find('.osdTopNavCustomSubmitButton').length).toBe(0);
+      expect(component.find('[data-test-subj="custom-submit-button"]').length).toBe(0);
+    });
+
+    it('should not render customSubmitButton when customSubmitButton is not provided', () => {
+      const component = shallowWithIntl(
+        <TopNavMenu
+          appName={'test'}
+          config={menuItems}
+          showSearchBar={true}
+          showDatePicker={false}
+          data={dataShim as any}
+          groupActions={true}
+          setMenuMountPoint={jest.fn()}
+        />
+      );
+
+      expect(component.find('.osdTopNavCustomSubmitButton').length).toBe(0);
     });
   });
 });

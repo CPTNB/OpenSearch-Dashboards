@@ -32,11 +32,7 @@ import './index.scss';
 
 import { PluginInitializerContext, CoreSetup, CoreStart, Plugin } from 'src/core/public';
 import { ConfigSchema } from '../config';
-import {
-  Storage,
-  IStorageWrapper,
-  createStartServicesGetter,
-} from '../../opensearch_dashboards_utils/public';
+import { createStartServicesGetter } from '../../opensearch_dashboards_utils/public';
 import {
   DataPublicPluginSetup,
   DataPublicPluginStart,
@@ -50,6 +46,13 @@ import { UiService } from './ui/ui_service';
 import { FieldFormatsService } from './field_formats';
 import { QueryService } from './query';
 import {
+  DataViewsService,
+  onRedirectNoDataView,
+  onUnsupportedTimePattern as onUnsupportedDataViewTimePattern,
+  DataViewsApiClient,
+  UiSettingsPublicToCommon as DataViewsUiSettingsPublicToCommon,
+} from './data_views';
+import {
   IndexPatternsService,
   onRedirectNoIndexPattern,
   onUnsupportedTimePattern,
@@ -57,6 +60,8 @@ import {
   UiSettingsPublicToCommon,
 } from './index_patterns';
 import {
+  setApplication,
+  setUseNewSavedQueriesUI,
   setFieldFormats,
   setIndexPatterns,
   setNotifications,
@@ -65,6 +70,8 @@ import {
   setSearchService,
   setUiService,
   setUiSettings,
+  setDataViews,
+  setSavedObjects,
 } from './services';
 import { opensearchaggs } from './search/expressions';
 import {
@@ -93,6 +100,14 @@ import { DataSourceFactory } from './data_sources/datasource';
 import { registerDefaultDataSource } from './data_sources/register_default_datasource';
 import { DefaultDslDataSource } from './data_sources/default_datasource';
 import { DEFAULT_DATA_SOURCE_TYPE } from './data_sources/constants';
+import { getSuggestions as getSQLSuggestions } from './antlr/opensearch_sql/code_completion';
+import { getSuggestions as getDQLSuggestions } from './antlr/dql/code_completion';
+import { getSuggestions as getPromptSuggestions } from './antlr/prompt/code_completion';
+import {
+  getDefaultSuggestions as getPPLSuggestions,
+  getSimplifiedPPLSuggestions,
+} from './antlr/opensearch_ppl/code_completion';
+import { createStorage, DataStorage, UI_SETTINGS } from '../common';
 
 declare module '../../ui_actions/public' {
   export interface ActionContextMapping {
@@ -115,7 +130,9 @@ export class DataPublicPlugin
   private readonly uiService: UiService;
   private readonly fieldFormatsService: FieldFormatsService;
   private readonly queryService: QueryService;
-  private readonly storage: IStorageWrapper;
+  private readonly storage: DataStorage;
+  private readonly sessionStorage: DataStorage;
+  private readonly config: ConfigSchema;
 
   constructor(initializerContext: PluginInitializerContext<ConfigSchema>) {
     this.searchService = new SearchService(initializerContext);
@@ -123,7 +140,12 @@ export class DataPublicPlugin
     this.queryService = new QueryService();
     this.fieldFormatsService = new FieldFormatsService();
     this.autocomplete = new AutocompleteService(initializerContext);
-    this.storage = new Storage(window.localStorage);
+    this.storage = createStorage({ engine: window.localStorage, prefix: 'opensearchDashboards.' });
+    this.sessionStorage = createStorage({
+      engine: window.sessionStorage,
+      prefix: 'opensearchDashboards.',
+    });
+    this.config = initializerContext.config.get();
   }
 
   public setup(
@@ -135,12 +157,22 @@ export class DataPublicPlugin
     expressions.registerFunction(opensearchaggs);
     expressions.registerFunction(indexPatternLoad);
 
+    const searchService = this.searchService.setup(core, {
+      usageCollection,
+      expressions,
+    });
+
     const queryService = this.queryService.setup({
       uiSettings: core.uiSettings,
       storage: this.storage,
+      sessionStorage: this.sessionStorage,
+      defaultSearchInterceptor: searchService.getDefaultSearchInterceptor(),
+      application: core.application,
+      notifications: core.notifications,
     });
 
-    uiActions.registerAction(
+    uiActions.addTriggerAction(
+      APPLY_FILTER_TRIGGER,
       createFilterAction(queryService.filterManager, queryService.timefilter.timefilter)
     );
 
@@ -158,31 +190,46 @@ export class DataPublicPlugin
       }))
     );
 
-    const searchService = this.searchService.setup(core, {
-      usageCollection,
-      expressions,
-    });
+    const autoComplete = this.autocomplete.setup(core);
+    autoComplete.addQuerySuggestionProvider('SQL', getSQLSuggestions);
+    autoComplete.addQuerySuggestionProvider('kuery', getDQLSuggestions);
+    autoComplete.addQuerySuggestionProvider('PPL', getPPLSuggestions);
+    autoComplete.addQuerySuggestionProvider('PPL_Simplified', getSimplifiedPPLSuggestions); // Support implicit PPL queries that don't necessarily start with source = datasetName
+    autoComplete.addQuerySuggestionProvider('AI', getPromptSuggestions);
 
-    const uiService = this.uiService.setup(core, {});
+    const useNewSavedQueriesUI =
+      core.uiSettings.get(UI_SETTINGS.QUERY_ENHANCEMENTS_ENABLED) &&
+      this.config.savedQueriesNewUI.enabled;
+    setUseNewSavedQueriesUI(useNewSavedQueriesUI);
 
     return {
-      // TODO: MQL
-      autocomplete: this.autocomplete.setup(core),
+      autocomplete: autoComplete,
       search: searchService,
       fieldFormats: this.fieldFormatsService.setup(core),
       query: queryService,
       __enhance: (enhancements: DataPublicPluginEnhancements) => {
         if (enhancements.search) searchService.__enhance(enhancements.search);
-        if (enhancements.ui) uiService.__enhance(enhancements.ui);
+        if (enhancements.editor)
+          queryService.queryString.getLanguageService().__enhance(enhancements.editor);
       },
     };
   }
 
   public start(core: CoreStart, { uiActions }: DataStartDependencies): DataPublicPluginStart {
-    const { uiSettings, http, notifications, savedObjects, overlays, application } = core;
+    const {
+      uiSettings,
+      http,
+      notifications,
+      savedObjects,
+      overlays,
+      application,
+      workspaces,
+    } = core;
     setNotifications(notifications);
     setOverlays(overlays);
     setUiSettings(uiSettings);
+    setApplication(application);
+    setSavedObjects(savedObjects);
 
     const fieldFormats = this.fieldFormatsService.start();
     setFieldFormats(fieldFormats);
@@ -205,13 +252,50 @@ export class DataPublicPlugin
         notifications.toasts,
         application.navigateToApp
       ),
+      // If workspace is enabled, only workspace owner/OSD admin can update ui setting.
+      ...(application.capabilities.workspaces.enabled && {
+        canUpdateUiSetting:
+          workspaces?.currentWorkspace$.getValue()?.owner ||
+          application.capabilities?.dashboards?.isDashboardAdmin !== false,
+      }),
     });
     setIndexPatterns(indexPatterns);
+
+    const dataViews = new DataViewsService({
+      patterns: indexPatterns,
+      uiSettings: new DataViewsUiSettingsPublicToCommon(uiSettings),
+      savedObjectsClient: new SavedObjectsClientPublicToCommon(savedObjects.client),
+      apiClient: new DataViewsApiClient(http),
+      fieldFormats,
+      onNotification: (toastInputFields) => {
+        notifications.toasts.add(toastInputFields);
+      },
+      onError: notifications.toasts.addError.bind(notifications.toasts),
+      onRedirectNoDataView: onRedirectNoDataView(
+        application.capabilities,
+        application.navigateToApp,
+        overlays
+      ),
+      onUnsupportedTimePattern: onUnsupportedDataViewTimePattern(
+        notifications.toasts,
+        application.navigateToApp
+      ),
+      // If workspace is enabled, only workspace owner/OSD admin can update ui setting.
+      ...(application.capabilities.workspaces.enabled && {
+        canUpdateUiSetting:
+          workspaces?.currentWorkspace$.getValue()?.owner ||
+          application.capabilities?.dashboards?.isDashboardAdmin !== false,
+      }),
+    });
+    setDataViews(dataViews);
 
     const query = this.queryService.start({
       storage: this.storage,
       savedObjectsClient: savedObjects.client,
       uiSettings,
+      indexPatterns,
+      application: core.application,
+      notifications,
     });
     setQueryService(query);
 
@@ -241,6 +325,7 @@ export class DataPublicPlugin
       },
       autocomplete: this.autocomplete.start(),
       fieldFormats,
+      dataViews,
       indexPatterns,
       query,
       search,

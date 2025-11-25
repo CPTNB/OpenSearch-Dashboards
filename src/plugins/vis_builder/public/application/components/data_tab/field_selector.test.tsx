@@ -7,6 +7,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { FilterManager, IndexPatternField } from '../../../../../data/public';
 import { FieldGroup } from './field_selector';
+import { DropResult, EuiDragDropContext, EuiDroppable } from '@elastic/eui';
 
 const mockUseIndexPatterns = jest.fn(() => ({ selected: 'mockIndexPattern' }));
 const mockUseOnAddFilter = jest.fn();
@@ -27,6 +28,7 @@ const mockGetDetailsByField = jest.fn(() => ({
   total: 150,
 }));
 
+// @ts-expect-error TS7006 TODO(ts-error): fixme
 const getFields = (name) => {
   return new IndexPatternField(
     {
@@ -68,7 +70,13 @@ describe('visBuilder sidebar field selector', function () {
         ...defaultProps,
         fields: ['bytes', 'machine.ram', 'memory', 'phpmemory'].map(getFields),
       };
-      const { container } = render(<FieldGroup {...props} />);
+      const { container } = render(
+        <EuiDragDropContext onDragEnd={(result: DropResult) => {}}>
+          <EuiDroppable droppableId="1">
+            <FieldGroup {...props} />
+          </EuiDroppable>
+        </EuiDragDropContext>
+      );
 
       expect(container).toHaveTextContent(props.header);
       expect(container).toHaveTextContent(props.fields.length.toString());

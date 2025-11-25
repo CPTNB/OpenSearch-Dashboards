@@ -42,6 +42,7 @@ import {
   ScopedHistory,
 } from 'opensearch-dashboards/public';
 
+import { WorkspaceAvailability } from '../../../../src/core/public';
 import {
   Storage,
   createOsdUrlTracker,
@@ -71,6 +72,7 @@ import {
 } from './services';
 import { visualizeFieldAction } from './actions/visualize_field_action';
 import { createVisualizeUrlGenerator } from './url_generator';
+import { DEFAULT_NAV_GROUPS } from '../../../core/public';
 
 export interface VisualizePluginStartDependencies {
   data: DataPublicPluginStart;
@@ -150,11 +152,14 @@ export class VisualizePlugin
     setUISettings(core.uiSettings);
     uiActions.addTriggerAction(VISUALIZE_FIELD_TRIGGER, visualizeFieldAction);
 
+    const visualizeAppId = 'visualize';
+
     core.application.register({
-      id: 'visualize',
+      id: visualizeAppId,
       title: 'Visualize',
       order: 8000,
       euiIconType: 'inputOutput',
+      workspaceAvailability: WorkspaceAvailability.insideWorkspace,
       defaultPath: '#/',
       category: DEFAULT_APP_CATEGORIES.opensearchDashboards,
       updater$: this.appStateUpdater.asObservable(),
@@ -225,6 +230,51 @@ export class VisualizePlugin
       },
     });
 
+    const titleInLeftNav = i18n.translate('visualize.leftNav.visualizeTitle', {
+      defaultMessage: 'Visualizations',
+    });
+
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.observability, [
+      {
+        id: visualizeAppId,
+        category: DEFAULT_APP_CATEGORIES.visualizeAndReport,
+        order: 100,
+        title: titleInLeftNav,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS['security-analytics'], [
+      {
+        id: visualizeAppId,
+        category: DEFAULT_APP_CATEGORIES.visualizeAndReport,
+        order: 100,
+        title: titleInLeftNav,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.essentials, [
+      {
+        id: visualizeAppId,
+        category: undefined,
+        order: 400,
+        title: titleInLeftNav,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.search, [
+      {
+        id: visualizeAppId,
+        category: DEFAULT_APP_CATEGORIES.visualizeAndReport,
+        order: 100,
+        title: titleInLeftNav,
+      },
+    ]);
+    core.chrome.navGroup.addNavLinksToGroup(DEFAULT_NAV_GROUPS.all, [
+      {
+        id: visualizeAppId,
+        category: DEFAULT_APP_CATEGORIES.visualizeAndReport,
+        order: 100,
+        title: titleInLeftNav,
+      },
+    ]);
+
     urlForwarding.forwardApp('visualize', 'visualize');
 
     if (home) {
@@ -247,6 +297,31 @@ export class VisualizePlugin
     setApplication(core.application);
     setIndexPatterns(plugins.data.indexPatterns);
     setQueryService(plugins.data.query);
+
+    // Register visualization navigation shortcuts only when workspace is available
+    if (core.keyboardShortcut) {
+      // Check if workspaces are initialized and available
+      const isInitialized = core.workspaces.initialized$.getValue();
+      const currentWorkspace = core.workspaces.currentWorkspace$.getValue();
+
+      if (isInitialized && currentWorkspace) {
+        core.keyboardShortcut.register({
+          id: 'nav.visualization',
+          name: i18n.translate('visualize.keyboardShortcut.goToVisualization.name', {
+            defaultMessage: 'Go to visualization',
+          }),
+          pluginId: 'visualize',
+          category: i18n.translate('visualize.keyboardShortcut.category.navigation', {
+            defaultMessage: 'Navigation',
+          }),
+          keys: 'g v',
+          execute: () => {
+            core.application.navigateToApp('visualize');
+          },
+        });
+      }
+    }
+
     if (plugins.share) {
       setShareService(plugins.share);
     }

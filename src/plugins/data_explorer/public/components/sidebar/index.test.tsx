@@ -47,14 +47,6 @@ jest.mock('../../../../opensearch_dashboards_react/public', () => {
               ),
             },
           },
-          ui: {
-            Settings: {
-              getEnabledQueryEnhancementsUpdated$: jest
-                .fn()
-                .mockImplementation(() => createObservable(false)),
-            },
-            container$: jest.fn().mockImplementation(() => createObservable(null)),
-          },
         },
         notifications: {
           toasts: {
@@ -66,6 +58,9 @@ jest.mock('../../../../opensearch_dashboards_react/public', () => {
         },
         overlays: {
           openConfirm: jest.fn(),
+        },
+        uiSettings: {
+          get: jest.fn(),
         },
       },
     }),
@@ -84,6 +79,7 @@ describe('Sidebar Component', () => {
   it('renders without crashing', () => {
     const { container, getByTestId } = render(
       <Provider store={store}>
+        {/* @ts-expect-error TS2739 TODO(ts-error): fixme */}
         <Sidebar />
       </Provider>
     );
@@ -94,6 +90,7 @@ describe('Sidebar Component', () => {
   it('shows title extensions on the non-index pattern data source', () => {
     const { getByText, getByTestId } = render(
       <Provider store={store}>
+        {/* @ts-expect-error TS2739 TODO(ts-error): fixme */}
         <Sidebar />
       </Provider>
     );
@@ -109,6 +106,7 @@ describe('Sidebar Component', () => {
     const { getByText, getByTestId } = render(
       <Provider store={store}>
         <Router history={history}>
+          {/* @ts-expect-error TS2739 TODO(ts-error): fixme */}
           <Sidebar />
         </Router>
       </Provider>

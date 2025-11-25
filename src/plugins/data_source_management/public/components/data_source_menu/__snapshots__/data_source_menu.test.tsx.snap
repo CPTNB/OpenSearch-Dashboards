@@ -21,6 +21,7 @@ exports[`DataSourceMenu can render data source view when only pass id in the act
       "find": [MockFunction],
     }
   }
+  scope="global"
   selectedOption={
     Array [
       Object {
@@ -52,6 +53,7 @@ exports[`DataSourceMenu can render data source view when provide activeOption 1`
       "find": [MockFunction],
     }
   }
+  scope="global"
   selectedOption={
     Array [
       Object {
@@ -75,25 +77,31 @@ Object {
         <div
           class="euiPopover__anchor"
         >
-          <button
-            aria-label="dataSourceAggregatedViewButton"
-            class="euiButtonEmpty euiButtonEmpty--primary euiButtonEmpty--small dataSourceComponentButtonTitle"
-            data-test-subj="dataSourceAggregatedViewButton"
-            type="button"
+          <div
+            class="dataSourceMenuPopoverButton dataSourceMenu-isDisabled"
+            data-label="Data source"
           >
-            <span
-              class="euiButtonContent euiButtonEmpty__content"
+            <button
+              aria-label="Data source selector"
+              class="euiButton euiButton--text euiButton--small euiButton-isDisabled dataSourceMenuPopoverButtonLabel"
+              data-test-subj="dataSourceAggregatedViewButton"
+              disabled=""
+              type="button"
             >
               <span
-                class="euiButtonContent__icon"
-                color="inherit"
-                data-euiicon-type="database"
-              />
-              <span
-                class="euiButtonEmpty__text"
-              />
-            </span>
-          </button>
+                class="euiButtonContent euiButton__content"
+              >
+                <span
+                  class="euiButtonContent__icon"
+                  color="inherit"
+                  data-euiicon-type="database"
+                />
+                <span
+                  class="euiButton__text"
+                />
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -106,25 +114,31 @@ Object {
       <div
         class="euiPopover__anchor"
       >
-        <button
-          aria-label="dataSourceAggregatedViewButton"
-          class="euiButtonEmpty euiButtonEmpty--primary euiButtonEmpty--small dataSourceComponentButtonTitle"
-          data-test-subj="dataSourceAggregatedViewButton"
-          type="button"
+        <div
+          class="dataSourceMenuPopoverButton dataSourceMenu-isDisabled"
+          data-label="Data source"
         >
-          <span
-            class="euiButtonContent euiButtonEmpty__content"
+          <button
+            aria-label="Data source selector"
+            class="euiButton euiButton--text euiButton--small euiButton-isDisabled dataSourceMenuPopoverButtonLabel"
+            data-test-subj="dataSourceAggregatedViewButton"
+            disabled=""
+            type="button"
           >
             <span
-              class="euiButtonContent__icon"
-              color="inherit"
-              data-euiicon-type="database"
-            />
-            <span
-              class="euiButtonEmpty__text"
-            />
-          </span>
-        </button>
+              class="euiButtonContent euiButton__content"
+            >
+              <span
+                class="euiButtonContent__icon"
+                color="inherit"
+                data-euiicon-type="database"
+              />
+              <span
+                class="euiButton__text"
+              />
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   </div>,
@@ -330,12 +344,14 @@ exports[`DataSourceMenu should render data source selectable only with local clu
       "remove": [MockFunction],
     }
   }
+  onManageDataSource={[MockFunction]}
   onSelectedDataSources={[MockFunction]}
   savedObjectsClient={
     Object {
       "find": [MockFunction],
     }
   }
+  scope="global"
 />
 `;
 
@@ -356,12 +372,14 @@ exports[`DataSourceMenu should render data source selectable only with local clu
       "remove": [MockFunction],
     }
   }
+  onManageDataSource={[MockFunction]}
   onSelectedDataSources={[MockFunction]}
   savedObjectsClient={
     Object {
       "find": [MockFunction],
     }
   }
+  scope="global"
 />
 `;
 
@@ -381,6 +399,7 @@ exports[`DataSourceMenu should render data source view if not pass saved object 
       "remove": [MockFunction],
     }
   }
+  scope="global"
 />
 `;
 
@@ -405,6 +424,7 @@ exports[`DataSourceMenu should render data source view only 1`] = `
       "find": [MockFunction],
     }
   }
+  scope="global"
 />
 `;
 

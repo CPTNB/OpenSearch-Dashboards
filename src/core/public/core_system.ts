@@ -29,10 +29,16 @@
  */
 
 import { pick } from '@osd/std';
-import { CoreId } from '../server';
-import { PackageInfo, EnvironmentMode } from '../server/types';
+import { setBuildHash } from '@osd/monaco';
 import { CoreSetup, CoreStart } from '.';
+import { CoreId } from '../server';
+import { EnvironmentMode, PackageInfo } from '../server/types';
+import { ApplicationService } from './application';
+import type { InternalApplicationSetup, InternalApplicationStart } from './application/types';
 import { ChromeService } from './chrome';
+import { ContextService } from './context';
+import { CoreApp } from './core_app';
+import { DocLinksService } from './doc_links';
 import { FatalErrorsService, FatalErrorsSetup } from './fatal_errors';
 import { HttpService } from './http';
 import { I18nService } from './i18n';
@@ -42,19 +48,15 @@ import {
   InjectedMetadataSetup,
   InjectedMetadataStart,
 } from './injected_metadata';
+import { IntegrationsService } from './integrations';
 import { NotificationsService } from './notifications';
 import { OverlayService } from './overlays';
 import { PluginsService } from './plugins';
-import { UiSettingsService } from './ui_settings';
-import { ApplicationService } from './application';
-import { DocLinksService } from './doc_links';
 import { RenderingService } from './rendering';
 import { SavedObjectsService } from './saved_objects';
-import { ContextService } from './context';
-import { IntegrationsService } from './integrations';
-import { CoreApp } from './core_app';
-import type { InternalApplicationSetup, InternalApplicationStart } from './application/types';
+import { UiSettingsService } from './ui_settings';
 import { WorkspacesService } from './workspace';
+import { KeyboardShortcutService } from './keyboard_shortcut';
 
 interface Params {
   rootDomElement: HTMLElement;
@@ -108,6 +110,7 @@ export class CoreSystem {
   private readonly context: ContextService;
   private readonly integrations: IntegrationsService;
   private readonly coreApp: CoreApp;
+  private readonly keyboardShortcut: KeyboardShortcutService;
 
   private readonly rootDomElement: HTMLElement;
   private readonly coreContext: CoreContext;
@@ -147,6 +150,7 @@ export class CoreSystem {
     this.context = new ContextService(this.coreContext);
     this.plugins = new PluginsService(this.coreContext, injectedMetadata.uiPlugins);
     this.coreApp = new CoreApp(this.coreContext);
+    this.keyboardShortcut = new KeyboardShortcutService();
   }
 
   public async setup() {
@@ -158,6 +162,10 @@ export class CoreSystem {
         injectedMetadata,
         i18n: this.i18n.getContext(),
       });
+
+      // Initialize Monaco environment with build hash for worker URLs
+      setBuildHash(injectedMetadata.getOpenSearchDashboardsBuildNumber());
+
       await this.integrations.setup();
       this.docLinks.setup();
       const http = this.http.setup({ injectedMetadata, fatalErrors: this.fatalErrorsSetup });
@@ -171,7 +179,8 @@ export class CoreSystem {
       });
       const application = this.application.setup({ context, http });
       this.coreApp.setup({ application, http, injectedMetadata, notifications });
-      const chrome = this.chrome.setup();
+      const chrome = this.chrome.setup({ uiSettings });
+      const keyboardShortcut = this.keyboardShortcut.setup();
 
       const core: InternalCoreSetup = {
         application,
@@ -183,6 +192,7 @@ export class CoreSystem {
         notifications,
         uiSettings,
         workspaces,
+        keyboardShortcut,
       };
 
       // Services that do not expose contracts at setup
@@ -228,6 +238,15 @@ export class CoreSystem {
       });
       const workspaces = this.workspaces.start();
       const application = await this.application.start({ http, overlays, workspaces });
+
+      // Only enable keyboard shortcuts when both the configuration is enabled AND workspaces are enabled
+      const keyboardShortcutsConfigEnabled = injectedMetadata.getKeyboardShortcuts().enabled;
+      const workspacesEnabled = application.capabilities.workspaces.enabled;
+      const keyboardShortcutsEnabled = keyboardShortcutsConfigEnabled && workspacesEnabled;
+
+      const keyboardShortcut = keyboardShortcutsEnabled
+        ? this.keyboardShortcut.start({ enabled: true })
+        : undefined;
       const chrome = await this.chrome.start({
         application,
         docLinks,
@@ -236,6 +255,8 @@ export class CoreSystem {
         notifications,
         uiSettings,
         overlays,
+        workspaces,
+        keyboardShortcut,
       });
 
       this.coreApp.start({ application, http, notifications, uiSettings });
@@ -267,11 +288,16 @@ export class CoreSystem {
         uiSettings,
         fatalErrors,
         workspaces,
+        keyboardShortcut: keyboardShortcut || undefined,
       };
 
       await this.plugins.start(core);
 
-      const { useExpandedHeader = true } = injectedMetadata.getBranding() ?? {};
+      let { useExpandedHeader = true } = injectedMetadata.getBranding() ?? {};
+      if (uiSettings.get('home:useNewHomePage')) {
+        useExpandedHeader = false;
+        this.rootDomElement.classList.add('headerIsDense');
+      }
 
       // ensure the rootDomElement is empty
       this.rootDomElement.textContent = '';
@@ -315,6 +341,7 @@ export class CoreSystem {
     this.i18n.stop();
     this.application.stop();
     this.workspaces.stop();
+    this.keyboardShortcut.stop();
     this.rootDomElement.textContent = '';
   }
 }

@@ -34,11 +34,13 @@ import {
   getIndexPatterns,
   getTypeService,
   getUIActions,
+  getUISettings,
 } from '../plugin_services';
 import { PersistedState, prepareJson } from '../../../visualizations/public';
 import { VisBuilderSavedVis } from '../saved_visualizations/transforms';
 import { handleVisEvent } from '../application/utils/handle_vis_event';
 import { VisBuilderEmbeddableFactoryDeps } from './vis_builder_embeddable_factory';
+import { VISBUILDER_ENABLE_VEGA_SETTING } from '../../common/constants';
 
 // Apparently this needs to match the saved object type for the clone and replace panel actions to work
 export const VISBUILDER_EMBEDDABLE = VISBUILDER_SAVED_OBJECT;
@@ -81,6 +83,7 @@ export class VisBuilderEmbeddable extends Embeddable<VisBuilderInput, VisBuilder
   private savedVis?: VisBuilderSavedVis;
   private serializedState?: string;
   private uiState: PersistedState;
+  // @ts-expect-error TS6133 TODO(ts-error): fixme
   private readonly deps: VisBuilderEmbeddableFactoryDeps;
 
   constructor(
@@ -150,11 +153,16 @@ export class VisBuilderEmbeddable extends Embeddable<VisBuilderInput, VisBuilder
 
       if (!valid && errorMsg) throw new Error(errorMsg);
 
-      const exp = await toExpression(renderState, {
-        filters: this.filters,
-        query: this.query,
-        timeRange: this.timeRange,
-      });
+      const useVega = getUISettings().get(VISBUILDER_ENABLE_VEGA_SETTING);
+      const exp = await toExpression(
+        renderState,
+        {
+          filters: this.filters,
+          query: this.query,
+          timeRange: this.timeRange,
+        },
+        useVega
+      );
       return exp;
     } catch (error) {
       this.onContainerError(error as Error);
@@ -251,7 +259,9 @@ export class VisBuilderEmbeddable extends Embeddable<VisBuilderInput, VisBuilder
     let pipeline = `opensearchDashboards | opensearch_dashboards_context `;
 
     // Access the query and filters from savedObject if available.
+    // @ts-expect-error TS2339 TODO(ts-error): fixme
     const query = this.savedVis?.searchSourceFields?.query;
+    // @ts-expect-error TS2339 TODO(ts-error): fixme
     const filters = this.savedVis?.searchSourceFields?.filter;
 
     // Append query and filters to the pipeline string if they exist.

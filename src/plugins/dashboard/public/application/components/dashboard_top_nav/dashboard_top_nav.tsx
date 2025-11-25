@@ -3,16 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useCallback } from 'react';
 import { IndexPattern } from 'src/plugins/data/public';
-import { useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
+import { i18n } from '@osd/i18n';
 import { useOpenSearchDashboards } from '../../../../../opensearch_dashboards_react/public';
-import { getTopNavConfig } from './top_nav';
+import { getTopNavConfig, getTopNavRightConfig, getTopNavLegacyConfig } from './top_nav';
 import { DashboardAppStateContainer, DashboardAppState, DashboardServices } from '../../../types';
 import { getNavActions } from '../../utils/get_nav_actions';
 import { DashboardContainer } from '../../embeddable';
 import { Dashboard } from '../../../dashboard';
+import { TopNavMenuItemRenderType, TopNavControlData } from '../../../../../navigation/public';
+import { TopNavIds } from './top_nav';
+import { ViewMode, isErrorEmbeddable, openAddPanelFlyout } from '../../../../../embeddable/public';
+import { getSavedObjectFinder } from '../../../../../saved_objects/public';
 
 interface DashboardTopNavProps {
   isChromeVisible: boolean;
@@ -46,11 +50,124 @@ const TopNav = ({
   dashboardIdFromUrl,
 }: DashboardTopNavProps) => {
   const [topNavMenu, setTopNavMenu] = useState<any>();
+  const [topRightControls, setTopRightControls] = useState<TopNavControlData[]>([]);
   const [isFullScreenMode, setIsFullScreenMode] = useState<any>();
 
   const { services } = useOpenSearchDashboards<DashboardServices>();
-  const { TopNavMenu } = services.navigation.ui;
-  const { dashboardConfig, setHeaderActionMenu } = services;
+  const { TopNavMenu, HeaderControl } = services.navigation.ui;
+  const { dashboardConfig, setHeaderActionMenu, keyboardShortcut } = services;
+  const { setAppRightControls } = services.application;
+
+  // Get nav actions for direct function calls
+  const keyboardNavActions = getNavActions(
+    appState,
+    savedDashboardInstance,
+    services,
+    dashboard,
+    dashboardIdFromUrl,
+    currentContainer
+  );
+
+  const handleToggleDashboardEdit = useCallback(() => {
+    const isEditMode = currentAppState?.viewMode === ViewMode.EDIT;
+    const actionId = isEditMode ? TopNavIds.EXIT_EDIT_MODE : TopNavIds.ENTER_EDIT_MODE;
+    if (keyboardNavActions[actionId]) {
+      keyboardNavActions[actionId]();
+    }
+  }, [keyboardNavActions, currentAppState]);
+
+  const handleSave = useCallback(() => {
+    if (keyboardNavActions[TopNavIds.SAVE]) {
+      keyboardNavActions[TopNavIds.SAVE]();
+    }
+  }, [keyboardNavActions]);
+
+  const handleAddPanel = useCallback(() => {
+    // directly open the add panel flyout
+    if (currentContainer && !isErrorEmbeddable(currentContainer)) {
+      openAddPanelFlyout({
+        embeddable: currentContainer,
+        getAllFactories: services.embeddable.getEmbeddableFactories,
+        getFactory: services.embeddable.getEmbeddableFactory,
+        notifications: services.notifications,
+        overlays: services.overlays,
+        SavedObjectFinder: getSavedObjectFinder(
+          services.savedObjects,
+          services.uiSettings,
+          services.data,
+          services.application
+        ),
+      });
+    }
+  }, [currentContainer, services]);
+
+  // Register/unregister save shortcut based on edit mode
+  useEffect(() => {
+    if (currentAppState?.viewMode === ViewMode.EDIT && keyboardShortcut) {
+      keyboardShortcut.register({
+        id: 'save_dashboard',
+        pluginId: 'dashboard',
+        name: i18n.translate('dashboard.topNav.saveDashboardShortcut', {
+          defaultMessage: 'Save dashboard',
+        }),
+        category: i18n.translate('dashboard.topNav.editingCategory', {
+          defaultMessage: 'Data actions',
+        }),
+        keys: 'cmd+s',
+        execute: handleSave,
+      });
+
+      // Cleanup: unregister when leaving edit mode or component unmounts
+      return () => {
+        keyboardShortcut.unregister({
+          id: 'save_dashboard',
+          pluginId: 'dashboard',
+        });
+      };
+    }
+  }, [currentAppState?.viewMode, keyboardShortcut, handleSave]);
+
+  // Register/unregister add shortcut based on edit mode
+  useEffect(() => {
+    if (currentAppState?.viewMode === ViewMode.EDIT && keyboardShortcut) {
+      keyboardShortcut.register({
+        id: 'add_panel_to_dashboard',
+        pluginId: 'dashboard',
+        name: i18n.translate('dashboard.topNav.addPanelShortcut', {
+          defaultMessage: 'Add panel to dashboard',
+        }),
+        category: i18n.translate('dashboard.topNav.dataActionsCategory', {
+          defaultMessage: 'Data actions',
+        }),
+        keys: 'a',
+        execute: handleAddPanel,
+      });
+
+      // Cleanup: unregister when leaving edit mode or component unmounts
+      return () => {
+        keyboardShortcut.unregister({
+          id: 'add_panel_to_dashboard',
+          pluginId: 'dashboard',
+        });
+      };
+    }
+  }, [currentAppState?.viewMode, keyboardShortcut, handleAddPanel]);
+
+  // Register dashboard edit mode keyboard shortcut
+  keyboardShortcut?.useKeyboardShortcut({
+    id: 'toggle_dashboard_edit',
+    pluginId: 'dashboard',
+    name: i18n.translate('dashboard.topNav.toggleEditModeShortcut', {
+      defaultMessage: 'Toggle edit mode',
+    }),
+    category: i18n.translate('dashboard.topNav.panelLayoutCategory', {
+      defaultMessage: 'Panel / layout',
+    }),
+    keys: 'shift+e',
+    execute: handleToggleDashboardEdit,
+  });
+
+  const showActionsInGroup = services.uiSettings.get('home:useNewHomePage');
 
   const location = useLocation();
   const queryParameters = new URLSearchParams(location.search);
@@ -86,11 +203,20 @@ const TopNav = ({
         currentContainer
       );
       setTopNavMenu(
-        getTopNavConfig(
-          currentAppState?.viewMode,
-          navActions,
-          dashboardConfig.getHideWriteControls()
-        )
+        showActionsInGroup
+          ? getTopNavConfig(
+              currentAppState?.viewMode,
+              navActions,
+              dashboardConfig.getHideWriteControls()
+            )
+          : getTopNavLegacyConfig(
+              currentAppState?.viewMode,
+              navActions,
+              dashboardConfig.getHideWriteControls()
+            )
+      );
+      setTopRightControls(
+        showActionsInGroup ? getTopNavRightConfig(currentAppState?.viewMode, navActions) : []
       );
     }
   }, [
@@ -103,6 +229,7 @@ const TopNav = ({
     isEmbeddableRendered,
     dashboard,
     dashboardIdFromUrl,
+    showActionsInGroup,
   ]);
 
   useEffect(() => {
@@ -124,27 +251,36 @@ const TopNav = ({
   const showSearchBar = showQueryBar || showFilterBar;
 
   return (
-    <TopNavMenu
-      appName={'dashboard'}
-      config={showTopNavMenu ? topNavMenu : undefined}
-      className={isFullScreenMode ? 'osdTopNavMenu-isFullScreen' : undefined}
-      screenTitle={currentAppState.title}
-      showSearchBar={showSearchBar}
-      showQueryBar={showQueryBar}
-      showQueryInput={showQueryInput}
-      showDatePicker={showDatePicker}
-      showFilterBar={showFilterBar}
-      useDefaultBehaviors={true}
-      indexPatterns={indexPatterns}
-      showSaveQuery={services.dashboardCapabilities.saveQuery as boolean}
-      savedQuery={undefined}
-      onSavedQueryIdChange={(savedQueryId?: string) => {
-        appState.transitions.set('savedQuery', savedQueryId);
-      }}
-      savedQueryId={currentAppState?.savedQuery}
-      onQuerySubmit={handleRefresh}
-      setMenuMountPoint={isEmbeddedExternally ? undefined : setHeaderActionMenu}
-    />
+    <>
+      <TopNavMenu
+        appName={'dashboard'}
+        config={showTopNavMenu ? topNavMenu : undefined}
+        className={isFullScreenMode ? 'osdTopNavMenu-isFullScreen' : undefined}
+        screenTitle={
+          currentAppState.title ||
+          i18n.translate('dashboard.savedSearch.newTitle', {
+            defaultMessage: 'New dashboard',
+          })
+        }
+        showSearchBar={showSearchBar && TopNavMenuItemRenderType.IN_PORTAL}
+        showQueryBar={showQueryBar}
+        showQueryInput={showQueryInput}
+        showDatePicker={showDatePicker}
+        showFilterBar={showFilterBar}
+        useDefaultBehaviors={true}
+        indexPatterns={indexPatterns}
+        showSaveQuery={services.dashboardCapabilities.saveQuery as boolean}
+        savedQuery={undefined}
+        onSavedQueryIdChange={(savedQueryId?: string) => {
+          appState.transitions.set('savedQuery', savedQueryId);
+        }}
+        savedQueryId={currentAppState?.savedQuery}
+        onQuerySubmit={handleRefresh}
+        setMenuMountPoint={isEmbeddedExternally ? undefined : setHeaderActionMenu}
+        groupActions={showActionsInGroup}
+      />
+      <HeaderControl setMountPoint={setAppRightControls} controls={topRightControls} />
+    </>
   );
 };
 
