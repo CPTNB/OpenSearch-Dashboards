@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { EuiDataGrid, EuiDataGridCellProps } from '@elastic/eui';
+import { EuiDataGrid, EuiDataGridCellProps, EuiDataGridSorting } from '@elastic/eui';
 import { i18n } from '@osd/i18n';
 import moment from 'moment';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,15 +23,18 @@ export const MetricsDataTable: React.FC<MetricsDataTableProps> = ({ searchResult
   const dateFormat = services.uiSettings.get(UI_SETTINGS.DATE_FORMAT);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 50 });
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
+  const [sortingColumns, setSortingColumns] = useState<EuiDataGridSorting['columns']>([]);
 
   const rows = searchResult?.instantHits?.hits || emptyHits;
   const columns = useMemo(
     () =>
-      searchResult?.instantFieldSchema?.map((field) => ({
-        id: field.name || '',
-        displayAsText: field.name || '',
-      })) || [],
+      searchResult?.instantFieldSchema
+        ?.filter((field) => field.name !== 'Metric')
+        .map((field) => ({
+          id: field.name || '',
+          displayAsText: field.name || '',
+        })) || [],
     [searchResult]
   );
 
@@ -43,7 +46,13 @@ export const MetricsDataTable: React.FC<MetricsDataTableProps> = ({ searchResult
     setPagination((prev) => ({ ...prev, pageIndex: 0 }));
   }, [searchResult]);
 
+  const onSort = useCallback((newSortingColumns: EuiDataGridSorting['columns']) => {
+    setSortingColumns(newSortingColumns);
+  }, []);
+
+  // @ts-expect-error TS2322 TODO(ts-error): fixme
   const renderCellValue: EuiDataGridCellProps['renderCellValue'] = useCallback(
+    // @ts-expect-error TS7031 TODO(ts-error): fixme
     ({ rowIndex, columnId }) => {
       const hit = rows[rowIndex];
       if (!hit?._source) return '—';
@@ -66,6 +75,8 @@ export const MetricsDataTable: React.FC<MetricsDataTableProps> = ({ searchResult
       columnVisibility={{ visibleColumns, setVisibleColumns }}
       rowCount={rows.length}
       renderCellValue={renderCellValue}
+      inMemory={{ level: 'sorting' }}
+      sorting={{ columns: sortingColumns, onSort }}
       pagination={{
         ...pagination,
         pageSizeOptions: [25, 50, 100],

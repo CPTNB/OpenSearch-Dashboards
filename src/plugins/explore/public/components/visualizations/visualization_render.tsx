@@ -3,28 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Observable } from 'rxjs';
 import { useObservable } from 'react-use';
 import dateMath from '@elastic/datemath';
 import { VisData } from './visualization_builder.types';
 import { TableVis } from './table/table_vis';
 import { defaultTableChartStyles, TableChartStyle } from './table/table_vis_config';
-import { ExecutionContextSearch } from '../../../../expressions/common/';
-import { ExpressionsStart } from '../../../../expressions/public';
 import { VisualizationEmptyState } from './visualization_empty_state';
 import { RenderChartConfig } from './types';
 import { TimeRange } from '../../../../data/public';
-import { VegaRender } from './vega_render';
-import { EchartsRender } from './echarts_render';
-import { createVisSpec } from './utils/create_vis_spec';
+import { visualizationRegistry } from './visualization_registry';
+import { convertStringsToMappings } from './visualization_builder_utils';
+import { getAxisConfigByColumnMapping } from './utils/axis';
 
 interface Props {
   data$: Observable<VisData | undefined>;
   config$: Observable<RenderChartConfig | undefined>;
   showRawTable$: Observable<boolean>;
-  searchContext?: ExecutionContextSearch;
-  ExpressionRenderer?: ExpressionsStart['ReactExpressionRenderer'];
+  timeRange?: TimeRange;
   onSelectTimeRange?: (timeRange?: TimeRange) => void;
   onStyleChange?: (updatedStyle: Partial<TableChartStyle>) => void;
 }
@@ -33,25 +30,29 @@ const defaultStyleOptions: TableChartStyle = {
   ...defaultTableChartStyles,
   showColumnFilter: false,
   showFooter: false,
-  pageSize: 10,
+  pageSize: 50,
   globalAlignment: 'left',
 };
-
-const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
 export const VisualizationRender = ({
   data$,
   config$,
   showRawTable$,
-  searchContext,
-  ExpressionRenderer,
+  timeRange: inputTimeRange,
   onSelectTimeRange,
   onStyleChange,
 }: Props) => {
   const visualizationData = useObservable(data$);
   const visConfig = useObservable(config$);
   const showRawTable = useObservable(showRawTable$);
-  const { from, to } = searchContext?.timeRange || {};
+  const { from, to } = inputTimeRange || {};
+
+  const timeRange = useMemo(() => {
+    return {
+      from: from ? dateMath.parse(from)?.format('YYYY-MM-DDTHH:mm:ss.SSSZ') ?? '' : '',
+      to: to ? dateMath.parse(to, { roundUp: true })?.format('YYYY-MM-DDTHH:mm:ss.SSSZ') ?? '' : '',
+    };
+  }, [from, to]);
 
   const rows = useMemo(() => {
     return visualizationData?.transformedData ?? [];
@@ -68,17 +69,6 @@ export const VisualizationRender = ({
     visualizationData?.categoricalColumns,
     visualizationData?.dateColumns,
   ]);
-
-  const timeRange = useMemo(() => {
-    return {
-      from: from ? dateMath.parse(from)?.format('YYYY-MM-DDTHH:mm:ss.SSSZ') ?? '' : '',
-      to: to ? dateMath.parse(to, { roundUp: true })?.format('YYYY-MM-DDTHH:mm:ss.SSSZ') ?? '' : '',
-    };
-  }, [from, to]);
-
-  const spec = useMemo(() => {
-    return createVisSpec({ data: visualizationData, config: visConfig, timeRange });
-  }, [visConfig, visualizationData, timeRange]);
 
   if (!visualizationData || columns.length === 0) {
     return null;
@@ -105,7 +95,6 @@ export const VisualizationRender = ({
         rows={rows}
         columns={columns}
         styleOptions={defaultStyleOptions}
-        pageSizeOptions={PAGE_SIZE_OPTIONS}
         showStyleSelector={false}
         disableActions={false}
       />
@@ -114,18 +103,63 @@ export const VisualizationRender = ({
 
   const hasSelectionMapping = Object.keys(visConfig?.axesMapping ?? {}).length !== 0;
   if (hasSelectionMapping) {
-    if (!spec.$schema) {
-      return <EchartsRender spec={spec} />;
-    }
     return (
-      <VegaRender
-        searchContext={searchContext}
-        ExpressionRenderer={ExpressionRenderer}
+      <ChartRender
+        data={visualizationData}
+        config={visConfig}
+        timeRange={timeRange}
         onSelectTimeRange={onSelectTimeRange}
-        spec={spec}
       />
     );
   }
 
   return <VisualizationEmptyState />;
+};
+
+const ChartRender = ({
+  data,
+  config,
+  timeRange,
+  onSelectTimeRange,
+}: {
+  data?: VisData;
+  config?: RenderChartConfig;
+  timeRange: TimeRange;
+  onSelectTimeRange?: (timeRange?: TimeRange) => void;
+}) => {
+  if (!data) {
+    return null;
+  }
+
+  if (!config?.type) {
+    return null;
+  }
+
+  const columns = [
+    ...(data?.numericalColumns ?? []),
+    ...(data?.categoricalColumns ?? []),
+    ...(data?.dateColumns ?? []),
+  ];
+
+  const rule = visualizationRegistry.findRuleByAxesMapping(
+    config.type,
+    config.axesMapping ?? {},
+    columns
+  );
+  if (!rule) {
+    return null;
+  }
+  const standardAxes = 'standardAxes' in config.styles ? config.styles.standardAxes : [];
+  const axisColumnMappings = convertStringsToMappings(config?.axesMapping ?? {}, columns);
+  // initialize axis config
+  const allAxisConfig = getAxisConfigByColumnMapping(axisColumnMappings, standardAxes);
+  const styles = { ...config.styles, standardAxes: allAxisConfig };
+
+  return rule.render({
+    transformedData: data.transformedData,
+    styleOptions: styles,
+    axisColumnMappings,
+    timeRange,
+    onSelectTimeRange,
+  });
 };

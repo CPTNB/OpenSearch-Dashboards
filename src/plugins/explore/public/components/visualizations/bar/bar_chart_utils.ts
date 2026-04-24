@@ -12,15 +12,11 @@ import {
   BucketOptions,
   AggregationType,
 } from '../types';
-import {
-  applyAxisStyling,
-  getSchemaByAxis,
-  adjustOppositeSymbol,
-  generateThresholdLines,
-} from '../utils/utils';
+import { applyAxisStyling, getSchemaByAxis, generateThresholdLines } from '../utils/utils';
 import { BarChartStyle } from './bar_vis_config';
 import { getColors, DEFAULT_GREY } from '../theme/default_colors';
-import { BaseChartStyle, PipelineFn } from '../utils/echarts_spec';
+import { BaseChartStyle, PipelineFn, EChartsSpecState } from '../utils/echarts_spec';
+import { getSeriesDisplayName } from '../utils/series';
 
 export const inferTimeIntervals = (data: Array<Record<string, any>>, field: string | undefined) => {
   if (!data || data.length === 0 || !field) {
@@ -194,95 +190,133 @@ export const buildThresholdColorEncoding = (
   return colorLayer;
 };
 
+interface Options {
+  styles: BarChartStyle;
+  categoryField: string;
+  seriesFields: string[] | ((headers?: string[]) => string[]);
+  categoryEncode: 'x' | 'y';
+  seriesEncode: 'x' | 'y';
+}
+
 /**
  * Create bar series configuration
  */
-export const createBarSeries = <T extends BaseChartStyle>(styles: BarChartStyle): PipelineFn<T> => (
+export const createBarSeries = <T extends BaseChartStyle>(options: Options): PipelineFn<T> => (
   state
 ) => {
-  const { axisConfig } = state;
+  const { styles, categoryField, categoryEncode = 'x', seriesEncode = 'y' } = options;
+  let seriesFields = options.seriesFields;
+
+  const { axisColumnMappings, transformedData = [] } = state;
   const newState = { ...state };
 
-  if (!axisConfig) {
-    throw new Error('axisConfig must be derived before createBarSeries');
+  if (!Array.isArray(seriesFields)) {
+    seriesFields = seriesFields(transformedData[0]);
   }
 
-  const numericalAxis = [axisConfig.xAxis, axisConfig.yAxis].find(
-    (axis) => axis?.schema === VisFieldType.Numerical
-  );
+  const thresholdLines = generateThresholdLines(options.styles?.thresholdOptions);
 
-  const thresholdLines = generateThresholdLines(styles?.thresholdOptions, styles?.switchAxes);
-  const series = [
-    {
+  let barWidth: string | undefined;
+  if (styles.barSizeMode === 'manual') {
+    barWidth = `${(styles.barWidth || 0.7) * 100}%`;
+  }
+
+  const series = seriesFields.map((seriesField, index) => {
+    const name = getSeriesDisplayName(seriesField, Object.values(axisColumnMappings).flat());
+    const seriesConfig = {
       type: 'bar',
-      name: numericalAxis?.name || '',
-      encode: {
-        x: axisConfig.xAxis?.column,
-        y: axisConfig.yAxis?.column,
+      emphasis: {
+        focus: 'self',
       },
-      // TODO: barWidth and barCategoryGap seems are exclusive, we need to revise the current UI for this config
-      barWidth: styles.barSizeMode === 'manual' ? `${(styles.barWidth || 0.7) * 100}%` : undefined,
-      barCategoryGap:
-        styles.barSizeMode === 'manual' ? `${(styles.barPadding || 0.1) * 100}%` : undefined,
-      ...thresholdLines,
+      name,
+      encode: {
+        [categoryEncode]: categoryField,
+        [seriesEncode]: seriesField,
+      },
+      barWidth,
+      ...(index === 0 && thresholdLines),
       ...(styles?.showBarBorder && {
         itemStyle: {
           borderWidth: styles.barBorderWidth,
           borderColor: styles.barBorderColor,
         },
       }),
-    },
-  ] as BarSeriesOption[];
+      // Apply stack configuration based on stackMode
+      ...('stackMode' in styles && styles.stackMode === 'total' && { stack: 'total' }),
+    };
+
+    return seriesConfig as BarSeriesOption;
+  }) as BarSeriesOption[];
   newState.series = series;
 
   return newState;
 };
 
-export const createStackBarSeries = <T extends BaseChartStyle>(
-  styles: BarChartStyle
-): PipelineFn<T> => (state) => {
-  const { axisConfig, aggregatedData } = state;
+export const createFacetBarSeries = <T extends BaseChartStyle>({
+  styles,
+  categoryField,
+  seriesFields,
+  categoryEncode = 'x',
+  seriesEncode = 'y',
+}: {
+  styles: BarChartStyle;
+  categoryField: string;
+  seriesFields: (headers?: string[]) => string[];
+  categoryEncode?: 'x' | 'y';
+  seriesEncode?: 'x' | 'y';
+}): PipelineFn<T> => (state) => {
+  const { transformedData } = state;
+
   const newState = { ...state };
+  const thresholdLines = generateThresholdLines(styles?.thresholdOptions);
 
-  if (!axisConfig) {
-    throw new Error('axisConfig must be derived before createBarSeries');
+  // facet into one chart
+  if (!Array.isArray(transformedData?.[0]?.[0])) {
+    const simpleBar = createBarSeries({
+      styles,
+      categoryField,
+      seriesFields,
+      categoryEncode,
+      seriesEncode,
+    })(newState);
+    return simpleBar as EChartsSpecState<T>;
   }
+  const allSeries = transformedData?.map((seriesData: any[], index: number) => {
+    const header = seriesData[0];
+    const cateColumns = seriesFields(header);
 
-  const thresholdLines = generateThresholdLines(styles?.thresholdOptions, styles?.switchAxes);
+    return cateColumns.map((item: string, i: number) => {
+      const seriesConfig = {
+        name: String(item),
+        type: 'bar',
+        encode: {
+          [categoryEncode]: categoryField,
+          [seriesEncode]: item,
+        },
+        datasetIndex: index,
+        gridIndex: index,
+        xAxisIndex: index,
+        yAxisIndex: index,
+        emphasis: {
+          focus: 'self',
+        },
+        barWidth:
+          styles.barSizeMode === 'manual' ? `${(styles.barWidth || 0.7) * 100}%` : undefined,
+        ...(styles.showBarBorder && {
+          itemStyle: {
+            borderWidth: styles.barBorderWidth,
+            borderColor: styles.barBorderColor,
+          },
+        }),
+        ...(i === 0 && thresholdLines),
+        ...(styles.stackMode === 'total' && { stack: `stack_${index}` }),
+      };
 
-  const actualX = styles?.switchAxes ? axisConfig.yAxis : axisConfig.xAxis;
+      return seriesConfig as BarSeriesOption;
+    });
+  });
 
-  const cateColumns = aggregatedData?.[0]?.filter((c: string) => c !== actualX?.column);
-
-  // create multi-series for each item in categorical2Collection
-  const newseries = cateColumns?.map((item: string, index: number) => ({
-    name: String(item),
-    type: 'bar',
-    stack: 'total',
-    //  use it for debugging
-    label: {
-      show: true,
-    },
-    emphasis: {
-      focus: 'self',
-    },
-    encode: {
-      [adjustOppositeSymbol(styles?.switchAxes, 'x')]: actualX?.column,
-      [adjustOppositeSymbol(styles?.switchAxes, 'y')]: item,
-    },
-    barWidth: styles.barSizeMode === 'manual' ? `${(styles.barWidth || 0.7) * 100}%` : undefined,
-    barCategoryGap:
-      styles.barSizeMode === 'manual' ? `${(styles.barPadding || 0.1) * 100}%` : undefined,
-    ...(styles.showBarBorder && {
-      itemStyle: {
-        borderWidth: styles.barBorderWidth,
-        borderColor: styles.barBorderColor,
-      },
-    }),
-    ...(index === 0 && thresholdLines),
-  }));
-
-  newState.series = newseries as BarSeriesOption[];
+  newState.series = allSeries?.flat() as BarSeriesOption[];
 
   return newState;
 };

@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
 import { Provider } from 'react-redux';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -17,9 +16,7 @@ const mockStore = configureMockStore([]);
 const store = mockStore({
   tab: {
     visualizations: {
-      styleOptions: {
-        switchAxes: false,
-      },
+      styleOptions: {},
     },
   },
 });
@@ -64,7 +61,6 @@ jest.mock('../style_panel/axes/axes_selector', () => ({
       dateColumns,
       currentMapping,
       updateVisualization,
-      onSwitchAxes,
     }) => (
       <div data-test-subj="mockAxesSelectPanel">
         <button
@@ -72,9 +68,6 @@ jest.mock('../style_panel/axes/axes_selector', () => ({
           onClick={() => updateVisualization({ type: 'test' })}
         >
           Update Visualization
-        </button>
-        <button data-test-subj="mockSwitchAxes" onClick={() => onSwitchAxes(true)}>
-          Switch Axes
         </button>
       </div>
     )
@@ -172,11 +165,14 @@ jest.mock('./bar_exclusive_vis_options', () => ({
       showBarBorder,
       barBorderWidth,
       barBorderColor,
+      stackMode,
       onBarWidthChange,
       onBarPaddingChange,
       onShowBarBorderChange,
       onBarBorderWidthChange,
       onBarBorderColorChange,
+      onStackModeChange,
+      onUseThresholdColorChange,
     }) => (
       <div data-test-subj="mockBarExclusiveVisOptions">
         <button data-test-subj="mockUpdateBarWidth" onClick={() => onBarWidthChange(0.8)}>
@@ -199,6 +195,15 @@ jest.mock('./bar_exclusive_vis_options', () => ({
           onClick={() => onBarBorderColorChange('#FF0000')}
         >
           Update Bar Border Color
+        </button>
+        <button data-test-subj="mockUpdateStackMode" onClick={() => onStackModeChange('total')}>
+          Update Stack Mode
+        </button>
+        <button
+          data-test-subj="mockUpdateUseThresholdColor"
+          onClick={() => onUseThresholdColorChange && onUseThresholdColorChange(true)}
+        >
+          Update Use Threshold Color
         </button>
       </div>
     )
@@ -476,17 +481,12 @@ describe('BarVisStyleControls', () => {
 
     await userEvent.click(screen.getByTestId('mockUpdateBarBorderColor'));
     expect(defaultProps.onStyleChange).toHaveBeenCalledWith({ barBorderColor: '#FF0000' });
-  });
 
-  test('calls onStyleChange with correct parameters for switch axes', async () => {
-    render(
-      <Provider store={store}>
-        <BarVisStyleControls {...defaultProps} />
-      </Provider>
-    );
+    await userEvent.click(screen.getByTestId('mockUpdateStackMode'));
+    expect(defaultProps.onStyleChange).toHaveBeenCalledWith({ stackMode: 'total' });
 
-    await userEvent.click(screen.getByTestId('mockSwitchAxes'));
-    expect(defaultProps.onStyleChange).toHaveBeenCalledWith({ switchAxes: true });
+    await userEvent.click(screen.getByTestId('mockUpdateUseThresholdColor'));
+    expect(defaultProps.onStyleChange).toHaveBeenCalledWith({ useThresholdColor: true });
   });
 
   test('updates title show option correctly', async () => {

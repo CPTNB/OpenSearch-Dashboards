@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
@@ -57,6 +56,21 @@ jest.mock('../../../../utils/state_management/actions/query_actions', () => ({
   defaultPrepareQueryString: jest.fn(() => 'mock-query-string'),
 }));
 
+// Mock onEditorRunActionCreator
+const mockOnEditorRunAction = jest.fn(() => ({ type: 'mock/onEditorRun' }));
+jest.mock(
+  '../../../../utils/state_management/actions/query_editor/on_editor_run/on_editor_run',
+  () => ({
+    // @ts-expect-error TS2556 TODO(ts-error): fixme
+    onEditorRunActionCreator: (...args: any[]) => mockOnEditorRunAction(...args),
+  })
+);
+
+// Mock useEditorRef hook
+jest.mock('../../../../hooks', () => ({
+  useEditorRef: jest.fn(() => ({ current: { getValue: jest.fn(() => 'test editor text') } })),
+}));
+
 // Mock useFlavorId hook
 jest.mock('../../../../../helpers/use_flavor_id', () => ({
   useFlavorId: jest.fn(() => 'logs'),
@@ -69,7 +83,6 @@ import { useDatasetContext } from '../../../../context';
 import { useOpenSearchDashboards } from '../../../../../../../opensearch_dashboards_react/public';
 import { useFlavorId } from '../../../../../helpers/use_flavor_id';
 import { ExploreFlavor } from '../../../../../../common';
-import { executeQueries } from '../../../../utils/state_management/actions/query_actions';
 
 const mockUseDatasetContext = useDatasetContext as jest.MockedFunction<typeof useDatasetContext>;
 const mockUseOpenSearchDashboards = useOpenSearchDashboards as jest.MockedFunction<
@@ -122,6 +135,7 @@ describe('BottomRightContainer', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockOnEditorRunAction.mockClear();
     mockUseOpenSearchDashboards.mockReturnValue({
       services: mockServices,
     } as any);
@@ -148,7 +162,7 @@ describe('BottomRightContainer', () => {
     expect(screen.getByTestId('no-index-patterns')).toBeInTheDocument();
   });
 
-  it('renders uninitialized state when status is UNINITIALIZED', () => {
+  it('renders tabs when status is UNINITIALIZED', () => {
     mockUseDatasetContext.mockReturnValue({
       dataset: { timeFieldName: 'timestamp' } as any,
       isLoading: false,
@@ -156,40 +170,18 @@ describe('BottomRightContainer', () => {
     });
 
     renderComponent(QueryExecutionStatus.UNINITIALIZED);
-    expect(screen.getByTestId('uninitialized')).toBeInTheDocument();
+    expect(screen.getByTestId('explore-tabs-vis-style-panel')).toBeInTheDocument();
   });
 
-  it('calls executeQueries when onRefresh is triggered', () => {
+  it('renders tabs when status is NO_RESULTS', () => {
     mockUseDatasetContext.mockReturnValue({
       dataset: { timeFieldName: 'timestamp' } as any,
       isLoading: false,
       error: null,
     });
 
-    renderComponent(QueryExecutionStatus.UNINITIALIZED);
-
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    fireEvent.click(refreshButton);
-
-    expect(executeQueries).toHaveBeenCalledWith({ services: mockServices });
-  });
-
-  it('does not call executeQueries when services is undefined', () => {
-    mockUseDatasetContext.mockReturnValue({
-      dataset: { timeFieldName: 'timestamp' } as any,
-      isLoading: false,
-      error: null,
-    });
-    mockUseOpenSearchDashboards.mockReturnValue({
-      services: undefined,
-    } as any);
-
-    renderComponent(QueryExecutionStatus.UNINITIALIZED);
-
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    fireEvent.click(refreshButton);
-
-    expect(executeQueries).not.toHaveBeenCalled();
+    renderComponent(QueryExecutionStatus.NO_RESULTS);
+    expect(screen.getByTestId('explore-tabs-vis-style-panel')).toBeInTheDocument();
   });
 
   it('renders loading spinner when status is LOADING', () => {
@@ -211,7 +203,7 @@ describe('BottomRightContainer', () => {
     });
 
     renderComponent(QueryExecutionStatus.NO_RESULTS);
-    expect(screen.getByTestId('no-results')).toBeInTheDocument();
+    expect(screen.getByTestId('explore-tabs-vis-style-panel')).toBeInTheDocument();
   });
 
   it('renders content when status is ERROR', () => {
@@ -318,8 +310,8 @@ describe('BottomRightContainer', () => {
       </Provider>
     );
 
-    // Should render uninitialized state
-    expect(screen.getByTestId('uninitialized')).toBeInTheDocument();
+    // Should render tabs (UNINITIALIZED now shows tabs for metrics explore)
+    expect(screen.getByTestId('explore-tabs-vis-style-panel')).toBeInTheDocument();
   });
 
   it('should handle dataset with null value correctly', () => {
@@ -333,7 +325,7 @@ describe('BottomRightContainer', () => {
     expect(screen.getByTestId('no-index-patterns')).toBeInTheDocument();
   });
 
-  it('should pass correct props to DiscoverNoResults', () => {
+  it('should render tabs when status is NO_RESULTS', () => {
     mockUseDatasetContext.mockReturnValue({
       dataset: { timeFieldName: '@timestamp' } as any,
       isLoading: false,
@@ -341,7 +333,7 @@ describe('BottomRightContainer', () => {
     });
 
     renderComponent(QueryExecutionStatus.NO_RESULTS);
-    expect(screen.getByTestId('no-results')).toBeInTheDocument();
+    expect(screen.getByTestId('explore-tabs-vis-style-panel')).toBeInTheDocument();
   });
 
   it('should render resizable vis control and tabs when status is READY', () => {

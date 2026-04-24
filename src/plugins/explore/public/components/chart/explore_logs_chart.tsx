@@ -12,6 +12,7 @@ import { EuiButtonIcon, EuiFlexGroup, EuiFlexItem, EuiToolTip } from '@elastic/e
 import { i18n } from '@osd/i18n';
 import { IUiSettingsClient } from 'opensearch-dashboards/public';
 import { useDispatch, useSelector } from 'react-redux';
+import { euiThemeVars } from '@osd/ui-shared-deps/theme';
 import { DataPublicPluginStart, search } from '../../../../data/public';
 import { TimechartHeader, TimechartHeaderBucketInterval } from './timechart_header';
 import { DiscoverHistogram } from './histogram/histogram';
@@ -32,7 +33,6 @@ import {
   executeHistogramQuery,
   prepareHistogramCacheKey,
   defaultPrepareQueryString,
-  executeDataTableQuery,
 } from '../../application/utils/state_management/actions/query_actions';
 import { ResultsSummary } from '../results_summary/results_summary';
 import { selectSummaryAgentIsAvailable } from '../../application/utils/state_management/selectors';
@@ -71,24 +71,17 @@ export const ExploreLogsChart = ({
   const breakdownField = useSelector((state: RootState) => state.queryEditor.breakdownField);
   const dispatch = useDispatch();
   const histogramCacheKey = prepareHistogramCacheKey(query, !!breakdownField);
-  const dataTableCacheKey = defaultPrepareQueryString(query);
   const onChangeInterval = (newInterval: string) => {
     dispatch(setInterval(newInterval));
     dispatch(clearResultsByKey(histogramCacheKey));
     dispatch(clearQueryStatusMapByKey(histogramCacheKey));
     dispatch(
+      // @ts-expect-error TS2345 TODO(ts-error): fixme
       executeHistogramQuery({
         services,
         cacheKey: histogramCacheKey,
         interval: newInterval,
         queryString: defaultPrepareQueryString(query),
-      })
-    );
-    dispatch(
-      executeDataTableQuery({
-        services,
-        cacheKey: dataTableCacheKey,
-        queryString: dataTableCacheKey,
       })
     );
   };
@@ -102,6 +95,7 @@ export const ExploreLogsChart = ({
       );
       dispatch(clearResults());
       dispatch(clearQueryStatusMap());
+      // @ts-expect-error TS2345 TODO(ts-error): fixme
       dispatch(executeQueries({ services }));
     },
     [dispatch, services]
@@ -224,6 +218,18 @@ export const ExploreLogsChart = ({
                 chartType={'HistogramBar'}
                 timefilterUpdateHandler={timefilterUpdateHandler}
                 services={services}
+                customChartsTheme={{
+                  colors: {
+                    vizColors: [euiThemeVars.euiColorVis0],
+                  },
+                  axes: {
+                    gridLine: {
+                      horizontal: { visible: false },
+                      vertical: { visible: false },
+                    },
+                  },
+                }}
+                useSmartDateFormat
               />
             </div>
           </section>

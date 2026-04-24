@@ -5,7 +5,7 @@
 
 import './_histogram.scss';
 
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import moment from 'moment';
 import dateMath from '@elastic/datemath';
 import {
@@ -15,7 +15,6 @@ import {
   EuiToolTip,
   EuiLoadingSpinner,
   EuiCallOut,
-  EuiIcon,
 } from '@elastic/eui';
 import { i18n } from '@osd/i18n';
 import { IUiSettingsClient } from 'opensearch-dashboards/public';
@@ -185,6 +184,7 @@ export const ExploreTracesChart = ({
       );
     });
 
+    // @ts-expect-error TS2345 TODO(ts-error): fixme
     dispatch(executeQueries({ services }));
   };
   const timefilterUpdateHandler = useCallback(
@@ -197,6 +197,7 @@ export const ExploreTracesChart = ({
       );
       dispatch(clearResults());
       dispatch(clearQueryStatusMap());
+      // @ts-expect-error TS2345 TODO(ts-error): fixme
       dispatch(executeQueries({ services }));
     },
     [dispatch, services]
@@ -204,15 +205,15 @@ export const ExploreTracesChart = ({
 
   // Individual chart titles for when expanded
   const requestChartTitle = i18n.translate('explore.traces.requestChart.title', {
-    defaultMessage: 'Request Count',
+    defaultMessage: 'Request count',
   });
 
   const errorChartTitle = i18n.translate('explore.traces.errorChart.title', {
-    defaultMessage: 'Error Count',
+    defaultMessage: 'Error count',
   });
 
   const latencyChartTitle = i18n.translate('explore.traces.latencyChart.title', {
-    defaultMessage: 'Latency (ms)',
+    defaultMessage: 'Avg latency (ms)',
   });
 
   const timeChartHeader = showHistogram ? (
@@ -313,6 +314,12 @@ export const ExploreTracesChart = ({
                     timefilterUpdateHandler={timefilterUpdateHandler}
                     services={services}
                     showYAxisLabel={false}
+                    useSmartDateFormat={true}
+                    customChartsTheme={{
+                      colors: {
+                        vizColors: [euiThemeVars.euiColorVis0],
+                      },
+                    }}
                   />
                 ) : requestError && isFieldMissingError(requestError) ? (
                   <EuiCallOut
@@ -379,9 +386,10 @@ export const ExploreTracesChart = ({
                     timefilterUpdateHandler={timefilterUpdateHandler}
                     services={services}
                     showYAxisLabel={false}
+                    useSmartDateFormat={true}
                     customChartsTheme={{
                       colors: {
-                        vizColors: [euiThemeVars.euiColorDanger],
+                        vizColors: [euiThemeVars.euiColorVis2],
                       },
                     }}
                   />
@@ -450,6 +458,12 @@ export const ExploreTracesChart = ({
                     timefilterUpdateHandler={timefilterUpdateHandler}
                     services={services}
                     showYAxisLabel={false}
+                    useSmartDateFormat={true}
+                    customChartsTheme={{
+                      colors: {
+                        vizColors: [euiThemeVars.euiColorVis1],
+                      },
+                    }}
                   />
                 ) : latencyError && isFieldMissingError(latencyError) ? (
                   <EuiCallOut

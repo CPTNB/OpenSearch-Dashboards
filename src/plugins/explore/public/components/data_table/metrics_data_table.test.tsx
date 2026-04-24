@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { render, screen } from '@testing-library/react';
-import React from 'react';
+import { render } from '@testing-library/react';
+
 import { MetricsDataTable } from './metrics_data_table';
 import { IPrometheusSearchResult } from '../../application/utils/state_management/slices';
 
@@ -24,7 +24,9 @@ describe('MetricsDataTable', () => {
     timed_out: false,
     _shards: { total: 1, successful: 1, skipped: 0, failed: 0 },
     hits: {
+      // @ts-expect-error TS2322 TODO(ts-error): fixme
       total: { value: 0, relation: 'eq' },
+      // @ts-expect-error TS2322 TODO(ts-error): fixme
       max_score: null,
       hits: [],
     },
@@ -69,6 +71,7 @@ describe('MetricsDataTable', () => {
     expect(container.querySelector('.euiDataGrid')).toBeInTheDocument();
     // Verify the component receives correct field schema for column configuration
     expect(mockSearchResult.instantFieldSchema).toHaveLength(4);
+    // @ts-expect-error TS18048 TODO(ts-error): fixme
     expect(mockSearchResult.instantFieldSchema.map((f) => f.name)).toEqual([
       'Time',
       'cpu',
@@ -110,6 +113,7 @@ describe('MetricsDataTable', () => {
     const expectedFields = ['Time', 'cpu', 'mode', 'Value'];
     expectedFields.forEach((field) => {
       expect(
+        // @ts-expect-error TS18048 TODO(ts-error): fixme
         mockSearchResult.instantFieldSchema.find((schema) => schema.name === field)
       ).toBeDefined();
     });
@@ -187,5 +191,31 @@ describe('MetricsDataTable', () => {
 
     const { container } = render(<MetricsDataTable searchResult={resultWithMissingSource} />);
     expect(container.querySelector('.euiDataGrid')).toBeInTheDocument();
+  });
+
+  describe('sorting', () => {
+    it('renders with sorting enabled via inMemory prop', () => {
+      const { container } = render(<MetricsDataTable searchResult={mockSearchResult} />);
+      // EuiDataGrid with inMemory sorting should render
+      expect(container.querySelector('.euiDataGrid')).toBeInTheDocument();
+    });
+
+    it('renders data grid with sortable columns', () => {
+      const { container } = render(<MetricsDataTable searchResult={mockSearchResult} />);
+      // EuiDataGrid should be present with sorting capability
+      const dataGrid = container.querySelector('.euiDataGrid');
+      expect(dataGrid).toBeInTheDocument();
+      // Verify the grid has columns configured from field schema
+      expect(mockSearchResult.instantFieldSchema?.length).toBeGreaterThan(0);
+    });
+
+    it('maintains sorting state after re-render', () => {
+      const { container, rerender } = render(<MetricsDataTable searchResult={mockSearchResult} />);
+      expect(container.querySelector('.euiDataGrid')).toBeInTheDocument();
+
+      // Re-render with same props should maintain component state
+      rerender(<MetricsDataTable searchResult={mockSearchResult} />);
+      expect(container.querySelector('.euiDataGrid')).toBeInTheDocument();
+    });
   });
 });

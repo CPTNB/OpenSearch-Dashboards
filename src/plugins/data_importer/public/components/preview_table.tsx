@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   EuiText,
   EuiTable,
@@ -88,8 +88,8 @@ export const PreviewComponent = ({
           className="customSearchBar"
         />
       </div>
-      <div style={{ height: 'calc(100% - 40px)', overflowY: 'auto' }}>
-        <EuiTable>
+      <div className="previewTableContainer">
+        <EuiTable className="previewTable">
           <EuiTableHeader>
             <EuiTableHeaderCell>#</EuiTableHeaderCell>
             {previewData?.length > 0 ? (
@@ -100,6 +100,7 @@ export const PreviewComponent = ({
               <EuiTableHeaderCell>Column</EuiTableHeaderCell>
             )}
           </EuiTableHeader>
+          {/* @ts-expect-error TS2559 TODO(ts-error): fixme */}
           <EuiTableBody>
             {totalRows > 0 &&
               filteredData?.slice(0, loadedRows).map((row, rowIndex) => (

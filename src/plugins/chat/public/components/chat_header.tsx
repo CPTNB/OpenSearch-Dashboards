@@ -4,61 +4,116 @@
  */
 
 import React from 'react';
-import { EuiText, EuiButtonIcon, EuiBadge, EuiFlexGroup, EuiFlexItem } from '@elastic/eui';
-import { ChatLayoutMode } from './chat_header_button';
+import { EuiText, EuiButtonIcon, EuiFlexGroup, EuiFlexItem, EuiToolTip } from '@elastic/eui';
+import { i18n } from '@osd/i18n';
 import './chat_header.scss';
 
 interface ChatHeaderProps {
-  layoutMode: ChatLayoutMode;
+  conversationName?: string;
   isStreaming: boolean;
-  onToggleLayout?: () => void;
   onNewChat: () => void;
   onClose: () => void;
+  onShowHistory?: () => void;
+  showBackButton?: boolean;
+  onBack?: () => void;
+  title?: string;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
-  layoutMode,
+  conversationName = '',
   isStreaming,
-  onToggleLayout,
   onNewChat,
   onClose,
+  onShowHistory,
+  showBackButton = false,
+  onBack,
+  title,
 }) => {
+  const displayTitle = title || conversationName;
+
   return (
     <div className="chatHeader">
-      <EuiFlexGroup alignItems="center" gutterSize="s" responsive={false}>
+      <EuiFlexGroup
+        alignItems="center"
+        gutterSize="none"
+        responsive={false}
+        className="chatHeader__titleGroup"
+      >
         <EuiFlexItem grow={false}>
-          <EuiText size="m">
-            <h3>Assistant</h3>
-          </EuiText>
+          {showBackButton && onBack ? (
+            <EuiToolTip
+              content={i18n.translate('chat.header.goBackTooltip', {
+                defaultMessage: 'Go back',
+              })}
+            >
+              <EuiButtonIcon
+                iconType="arrowLeft"
+                onClick={onBack}
+                aria-label={i18n.translate('chat.header.goBackAriaLabel', {
+                  defaultMessage: 'Go back',
+                })}
+                size="m"
+                color="text"
+              />
+            </EuiToolTip>
+          ) : (
+            <EuiToolTip
+              content={i18n.translate('chat.header.showHistoryTooltip', {
+                defaultMessage: 'View all conversations',
+              })}
+            >
+              <EuiButtonIcon
+                iconType="chatLeft"
+                onClick={onShowHistory}
+                aria-label={i18n.translate('chat.header.showHistoryAriaLabel', {
+                  defaultMessage: 'Show conversation history',
+                })}
+                size="m"
+                color="text"
+              />
+            </EuiToolTip>
+          )}
         </EuiFlexItem>
-        <EuiFlexItem grow={false}>
-          <EuiBadge color="warning" className="chatHeader__experimentalBadge">
-            Experimental
-          </EuiBadge>
-        </EuiFlexItem>
+        {displayTitle && (
+          <EuiFlexItem grow={true} className="chatHeader__titleContainer">
+            <EuiText size="m">
+              <h3 className="chatHeader__title">{displayTitle}</h3>
+            </EuiText>
+          </EuiFlexItem>
+        )}
       </EuiFlexGroup>
       <div className="chatHeader__buttons">
-        {onToggleLayout && (
+        <EuiToolTip
+          content={i18n.translate('chat.header.newChatTooltip', {
+            defaultMessage: 'Start a new conversation',
+          })}
+        >
           <EuiButtonIcon
-            iconType={layoutMode === ChatLayoutMode.FULLSCREEN ? 'minimize' : 'fullScreen'}
-            onClick={onToggleLayout}
+            iconType="documentEdit"
+            onClick={onNewChat}
             disabled={isStreaming}
-            aria-label={
-              layoutMode === ChatLayoutMode.FULLSCREEN
-                ? 'Switch to sidecar'
-                : 'Switch to fullscreen'
-            }
+            aria-label={i18n.translate('chat.header.newChatAriaLabel', {
+              defaultMessage: 'New chat',
+            })}
             size="m"
+            color="text"
           />
-        )}
-        <EuiButtonIcon
-          iconType="plus"
-          onClick={onNewChat}
-          disabled={isStreaming}
-          aria-label="New chat"
-          size="m"
-        />
-        <EuiButtonIcon iconType="cross" onClick={onClose} aria-label="Close chatbot" size="m" />
+        </EuiToolTip>
+        <EuiToolTip
+          content={i18n.translate('chat.header.closeChatTooltip', {
+            defaultMessage: 'Close chat window',
+          })}
+        >
+          <EuiButtonIcon
+            iconType="cross"
+            onClick={onClose}
+            aria-label={i18n.translate('chat.header.closeChatAriaLabel', {
+              defaultMessage: 'Close chatbot',
+            })}
+            size="m"
+            color="text"
+          />
+        </EuiToolTip>
       </div>
     </div>
   );

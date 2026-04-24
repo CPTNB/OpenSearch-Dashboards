@@ -16,6 +16,7 @@ export type {
   UserMessage,
   ToolMessage,
   Role,
+  TextInputContent,
 } from '../../../core/public/chat';
 
 // Zod schemas for runtime validation - these ensure the core types are followed
@@ -29,6 +30,23 @@ export const ToolCallSchema = z.object({
   type: z.literal('function'),
   function: FunctionCallSchema,
 });
+
+// AG-UI Protocol: Input content schemas for multimodal content (text + images)
+export const TextInputContentSchema = z.object({
+  type: z.literal('text'),
+  text: z.string(),
+});
+
+export const BinaryInputContentSchema = z.object({
+  type: z.literal('binary'),
+  mimeType: z.string(),
+  id: z.string().optional(),
+  url: z.string().optional(),
+  data: z.string().optional(),
+  filename: z.string().optional(),
+});
+
+export const InputContentSchema = z.union([TextInputContentSchema, BinaryInputContentSchema]);
 
 export const BaseMessageSchema = z.object({
   id: z.string(),
@@ -55,7 +73,7 @@ export const AssistantMessageSchema = BaseMessageSchema.extend({
 
 export const UserMessageSchema = BaseMessageSchema.extend({
   role: z.literal('user'),
-  content: z.string(),
+  content: z.union([z.string(), z.array(InputContentSchema)]),
 });
 
 export const ToolMessageSchema = z.object({

@@ -8,16 +8,21 @@ import { AgUiAgent } from './ag_ui_agent';
 import { RunAgentInput, Message, UserMessage, ToolMessage } from '../../common/types';
 import type { ToolDefinition } from '../../../context_provider/public';
 import { AssistantActionService } from '../../../context_provider/public';
-import { ChatLayoutMode } from '../components/chat_header_button';
 import type { ChatWindowInstance } from '../components/chat_window';
 import {
   IUiSettingsClient,
   UiSettingScope,
   ChatServiceStart,
-  ChatWindowState,
   WorkspacesStart,
+  Event,
+  EventType,
+  MessagesSnapshotEvent,
+  ToolCallStartEvent,
+  ToolCallArgsEvent,
+  ToolCallEndEvent,
 } from '../../../../core/public';
 import { getDefaultDataSourceId } from '../../../data_source_management/public';
+import { ConversationHistoryService } from './conversation_history_service';
 
 export interface ChatState {
   messages: Message[];
@@ -30,11 +35,6 @@ export interface CurrentChatState {
   messages: Message[];
 }
 
-export type ChatWindowStateCallback = (
-  newWindowState: ChatWindowState,
-  changed: { [key in keyof ChatWindowState]: boolean }
-) => void;
-
 export class ChatService {
   private agent: AgUiAgent;
   public availableTools: ToolDefinition[] = [];
@@ -45,15 +45,21 @@ export class ChatService {
   private coreChatService?: ChatServiceStart;
   private workspaces?: WorkspacesStart;
 
-  // Chat state persistence
-  private readonly STORAGE_KEY = 'chat.currentState';
-  private currentMessages: Message[] = [];
+  // ChatWindow instance for delegating sendMessage calls to proper timeline management
+  private chatWindowInstance: ChatWindowInstance | null = null;
 
-  // ChatWindow ref for delegating sendMessage calls to proper timeline management
-  private chatWindowRef: React.RefObject<ChatWindowInstance> | null = null;
+  // Promise to track when window instance becomes available
+  private windowInstancePromise: Promise<ChatWindowInstance> | null = null;
+  private windowInstanceResolver: ((instance: ChatWindowInstance) => void) | null = null;
 
   // Subscription to assistant action service for tool updates
   private toolSubscription?: Subscription;
+
+  // Cache for datasourceId to avoid repeated lookups
+  private cachedDataSourceId?: string;
+
+  // Conversation history service
+  public conversationHistoryService: ConversationHistoryService;
 
   constructor(
     uiSettings: IUiSettingsClient,
@@ -66,16 +72,11 @@ export class ChatService {
     this.coreChatService = coreChatService;
     this.workspaces = workspaces;
 
-    // Try to restore existing state first
-    const currentChatState = this.loadCurrentChatState();
-    if (currentChatState?.threadId && this.coreChatService) {
-      // Set thread ID in core service
-      this.coreChatService.setThreadId(currentChatState.threadId);
+    // Initialize conversation history service
+    if (!coreChatService) {
+      throw new Error('Core chat service is required for conversation history');
     }
-
-    // Clean up trailing error messages from interrupted sessions (e.g., page refresh)
-    const messages = currentChatState?.messages || [];
-    this.currentMessages = this.removeTrailingErrorMessages(messages);
+    this.conversationHistoryService = new ConversationHistoryService(coreChatService);
 
     // Subscribe to assistant action service to keep tools in sync
     const assistantActionService = AssistantActionService.getInstance();
@@ -102,7 +103,7 @@ export class ChatService {
     return `run-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
-  private generateMessageId(): string {
+  public generateMessageId(): string {
     return `msg-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
@@ -119,29 +120,6 @@ export class ChatService {
     this.activeRequests.delete(requestId);
   }
 
-  // Window state management - delegate to core service
-  public isWindowOpen(): boolean {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
-    }
-    return this.coreChatService.isWindowOpen();
-  }
-
-  public getWindowState(): ChatWindowState {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
-    }
-    return this.coreChatService.getWindowState();
-  }
-
-  public getWindowMode(): ChatLayoutMode {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
-    }
-    const windowMode = this.coreChatService.getWindowState().windowMode;
-    return windowMode === 'sidecar' ? ChatLayoutMode.SIDECAR : ChatLayoutMode.FULLSCREEN;
-  }
-
   public getPaddingSize(): number {
     if (!this.coreChatService) {
       throw new Error('Core chat service not available');
@@ -151,72 +129,51 @@ export class ChatService {
     return paddingSize ?? 400;
   }
 
-  public setWindowState(newWindowState: Partial<ChatWindowState>): void {
+  // ChatWindow instance management for proper timeline handling
+  public setChatWindowInstance(instance: ChatWindowInstance): void {
+    this.chatWindowInstance = instance;
+
+    // Resolve the promise if someone is waiting for the instance
+    if (this.windowInstanceResolver) {
+      this.windowInstanceResolver(instance);
+      this.windowInstanceResolver = null;
+      this.windowInstancePromise = null;
+    }
+  }
+
+  public clearChatWindowInstance(): void {
+    this.chatWindowInstance = null;
+    // Reset promise when instance is cleared
+    this.windowInstancePromise = null;
+    this.windowInstanceResolver = null;
+  }
+
+  public async openWindow(): Promise<ChatWindowInstance> {
     if (!this.coreChatService) {
       throw new Error('Core chat service not available');
     }
-    this.coreChatService.setWindowState(newWindowState);
-  }
 
-  public onWindowStateChange(callback: ChatWindowStateCallback): () => void {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
+    // If window is already open and instance is available, return it immediately
+    if (this.coreChatService.isWindowOpen() && this.chatWindowInstance) {
+      return this.chatWindowInstance;
     }
 
-    let previousState: ChatWindowState | null = null;
-
-    // Subscribe to core service observable and add change tracking logic
-    const subscription = this.coreChatService.getWindowState$().subscribe((newState) => {
-      if (previousState === null) {
-        previousState = { ...newState };
-        return;
-      }
-
-      // Compare with previous state to determine what changed
-      const changed = {
-        isWindowOpen: previousState.isWindowOpen !== newState.isWindowOpen,
-        windowMode: previousState.windowMode !== newState.windowMode,
-        paddingSize: previousState.paddingSize !== newState.paddingSize,
-      };
-
-      // Only notify if something actually changed
-      if (changed.isWindowOpen || changed.windowMode || changed.paddingSize) {
-        callback(newState, changed);
-        previousState = { ...newState };
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }
-
-  public onWindowOpenRequest(callback: () => void): () => void {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
+    // Create a promise that will resolve when the window instance becomes available
+    const windowInstancePromise =
+      this.windowInstancePromise ||
+      new Promise<ChatWindowInstance>((resolve) => {
+        this.windowInstanceResolver = resolve;
+      });
+    if (!this.windowInstancePromise) {
+      this.windowInstancePromise = windowInstancePromise;
     }
-    return this.coreChatService.onWindowOpen(callback);
-  }
 
-  public onWindowCloseRequest(callback: () => void): () => void {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
-    }
-    return this.coreChatService.onWindowClose(callback);
-  }
-
-  // ChatWindow ref management for proper timeline handling
-  public setChatWindowRef(ref: React.RefObject<ChatWindowInstance>): void {
-    this.chatWindowRef = ref;
-  }
-
-  public clearChatWindowRef(): void {
-    this.chatWindowRef = null;
-  }
-
-  public async openWindow(): Promise<void> {
-    if (!this.coreChatService) {
-      throw new Error('Core chat service not available');
-    }
+    // Trigger window opening
     await this.coreChatService.openWindow();
+
+    // Wait for the window instance to be set (by setChatWindowInstance)
+    const instance = await windowInstancePromise;
+    return instance;
   }
 
   public async closeWindow(): Promise<void> {
@@ -234,45 +191,33 @@ export class ChatService {
     observable: any;
     userMessage: UserMessage;
   }> {
-    // Ensure window is open
-    await this.openWindow();
-
-    // Clear conversation if requested (create new thread)
+    // Start new thread first to avoid restoring from latest conversation when window opens
     if (options?.clearConversation) {
       this.newThread();
+    }
+    // Ensure window is open and get the window instance
+    const chatWindowInstance = await this.openWindow();
 
-      // If we have ChatWindow ref, also clear its conversation
-      if (this.chatWindowRef?.current) {
-        this.chatWindowRef.current.startNewChat();
-      }
+    // Reset chat window UI to a fresh chat panel
+    if (options?.clearConversation) {
+      chatWindowInstance.startNewChat();
     }
 
-    // If ChatWindow is available, delegate to its sendMessage for proper timeline management
-    if (this.chatWindowRef?.current && this.isWindowOpen()) {
-      try {
-        await this.chatWindowRef.current.sendMessage({ content });
+    await chatWindowInstance.sendMessage({ content, messages });
 
-        // Create a user message for consistency with the return type
-        const userMessage: UserMessage = {
-          id: this.generateMessageId(),
-          role: 'user',
-          content: content.trim(),
-        };
+    // Create a user message for consistency with the return type
+    const userMessage: UserMessage = {
+      id: this.generateMessageId(),
+      role: 'user',
+      content: content.trim(),
+    };
 
-        // Return a dummy observable since ChatWindow handles everything internally
-        const dummyObservable = new Observable((subscriber) => {
-          subscriber.complete();
-        });
+    // Return a dummy observable since ChatWindow handles everything internally
+    const dummyObservable = new Observable((subscriber) => {
+      subscriber.complete();
+    });
 
-        return { observable: dummyObservable, userMessage };
-      } catch (error) {
-        // Fall back to direct service call if delegation fails
-      }
-    }
-
-    // Fallback to direct service call
-    const result = await this.sendMessage(content, messages);
-    return result;
+    return { observable: dummyObservable, userMessage };
   }
 
   /**
@@ -315,6 +260,7 @@ export class ChatService {
 
       const pageDataSourceId = this.extractDataSourceIdFromPageContext(allContexts);
       if (pageDataSourceId) {
+        this.cachedDataSourceId = pageDataSourceId;
         return pageDataSourceId;
       }
 
@@ -343,12 +289,21 @@ export class ChatService {
       // Get default data source with proper scope
       const dataSourceId = await getDefaultDataSourceId(this.uiSettings, scope);
 
+      this.cachedDataSourceId = dataSourceId || undefined;
       return dataSourceId || undefined;
     } catch (error) {
       // eslint-disable-next-line no-console
       console.warn('Failed to determine data source, proceeding without:', error);
       return undefined; // Graceful fallback - undefined means local cluster
     }
+  }
+
+  /**
+   * Get the current cached data source ID
+   * Returns the datasourceId that was last retrieved
+   */
+  public async getCurrentDataSourceId(): Promise<string | undefined> {
+    return this.cachedDataSourceId || (await this.getWorkspaceAwareDataSourceId());
   }
 
   public async sendMessage(
@@ -361,11 +316,31 @@ export class ChatService {
     const requestId = this.generateRequestId();
 
     this.addActiveRequest(requestId);
-    const userMessage: UserMessage = {
-      id: this.generateMessageId(),
-      role: 'user',
-      content: content.trim(),
-    };
+
+    // Check if the last message in the array is a user message with array content
+    // If so, append the text to the existing content array (for multimodal messages)
+    let userMessage: UserMessage;
+    const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
+    const hasArrayContent = lastMessage?.role === 'user' && Array.isArray(lastMessage.content);
+
+    if (hasArrayContent && lastMessage) {
+      // Remove the last message from the array since we'll merge it with the new message
+      messages = messages.slice(0, -1);
+
+      // Append text to the existing content array (preserves order from caller)
+      userMessage = {
+        ...lastMessage,
+        id: this.generateMessageId(),
+        content: [...(lastMessage.content as any[]), { type: 'text', text: content.trim() }],
+      };
+    } else {
+      // No array content, create a simple text message
+      userMessage = {
+        id: this.generateMessageId(),
+        role: 'user',
+        content: content.trim(),
+      };
+    }
 
     // Get workspace-aware data source ID
     const dataSourceId = await this.getWorkspaceAwareDataSourceId();
@@ -379,11 +354,18 @@ export class ChatService {
       description: ctx.description,
       value: typeof ctx.value === 'string' ? ctx.value : JSON.stringify(ctx.value),
     }));
+    const threadId = this.getThreadId();
+
+    if (!threadId) {
+      throw new Error('Thread ID is required to send a message');
+    }
 
     const runInput: RunAgentInput = {
-      threadId: this.getThreadId(),
+      threadId,
       runId: this.generateRunId(),
-      messages: [...messages, userMessage],
+      messages: this.conversationHistoryService.getMemoryProvider().includeFullHistory
+        ? [...messages, userMessage]
+        : [userMessage],
       tools: this.availableTools || [], // Pass available tools to AG-UI server
       context, // All contexts (static + dynamic) with stringified values
       state: {}, // Empty for agent internal use only
@@ -412,6 +394,59 @@ export class ChatService {
     this.events$ = trackedObservable;
 
     return { observable: trackedObservable, userMessage };
+  }
+
+  /**
+   * Wait for tool call result to be synced to agentic memory
+   * Polls the conversation history to check if the tool call has been saved
+   */
+  private async waitForToolCallSync(
+    toolCallId: string,
+    maxAttempts: number = 10,
+    intervalMs: number = 1000
+  ): Promise<void> {
+    const threadId = this.getThreadId();
+    if (!threadId) return;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const events = await this.conversationHistoryService.getConversation(threadId);
+
+        if (events) {
+          // Check for tool call in MESSAGES_SNAPSHOT events
+          // The tool call is stored in assistant messages' toolCalls array
+          const toolCallSynced = events.some((event) => {
+            if (event.type === EventType.MESSAGES_SNAPSHOT && 'messages' in event) {
+              const messages = (event as any).messages as Message[];
+              return messages.some(
+                (msg) =>
+                  msg.role === 'assistant' &&
+                  'toolCalls' in msg &&
+                  Array.isArray((msg as any).toolCalls) &&
+                  (msg as any).toolCalls.some((tc: any) => tc.id === toolCallId)
+              );
+            }
+            return false;
+          });
+
+          if (toolCallSynced) {
+            return; // Tool call has been synced
+          }
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.warn(`Failed to check tool call sync status (attempt ${attempt + 1}):`, error);
+      }
+
+      // Wait before next attempt
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+
+    // If we've exhausted all attempts, log a warning but continue
+    // eslint-disable-next-line no-console
+    console.warn(
+      `Tool call sync check timed out after ${maxAttempts} attempts for toolCallId: ${toolCallId}`
+    );
   }
 
   public async sendToolResult(
@@ -446,10 +481,18 @@ export class ChatService {
     }));
 
     // Send the tool result back to the agent with full conversation history
-    const mappedMessages = [...messages, toolMessage];
+    const includeFullHistory = this.conversationHistoryService.getMemoryProvider()
+      .includeFullHistory;
+    const mappedMessages = includeFullHistory ? [...messages, toolMessage] : [toolMessage];
+
+    const threadId = this.getThreadId();
+
+    if (!threadId) {
+      throw new Error('Thread ID is required to send a tool result');
+    }
 
     const runInput: RunAgentInput = {
-      threadId: this.getThreadId(),
+      threadId,
       runId: this.generateRunId(),
       messages: mappedMessages,
       tools: this.availableTools || [],
@@ -457,6 +500,12 @@ export class ChatService {
       state: {}, // Empty for agent internal use only
       forwardedProps: {},
     };
+
+    // Wait for tool call result to be synced to agentic memory only when not including full history
+    // (when full history is included, messages are passed directly so no sync wait needed)
+    if (!includeFullHistory) {
+      await this.waitForToolCallSync(toolCallId);
+    }
 
     // Continue the conversation with the tool result
     const observable = this.agent.runAgent(runInput, dataSourceId);
@@ -490,79 +539,17 @@ export class ChatService {
     this.agent.resetConnection();
   }
 
-  // Chat state persistence methods
-  private saveCurrentChatState(): void {
-    const state: CurrentChatState = {
-      threadId: this.getThreadId(),
-      messages: this.currentMessages,
-    };
-    try {
-      sessionStorage.setItem(this.STORAGE_KEY, JSON.stringify(state));
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to save chat state to sessionStorage:', error);
-    }
-  }
-
-  private loadCurrentChatState(): CurrentChatState | null {
-    try {
-      const stored = sessionStorage.getItem(this.STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to load chat state from sessionStorage:', error);
-      return null;
-    }
-  }
-
-  private clearCurrentChatState(): void {
-    try {
-      sessionStorage.removeItem(this.STORAGE_KEY);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to clear chat state from sessionStorage:', error);
-    }
-  }
-
   /**
-   * Remove trailing system error messages from restored chat sessions.
-   * This prevents stale "network error" messages from interrupted connections (page refresh)
-   * from appearing when the user returns to the chat.
+   * Save messages to conversation history
    */
-  private removeTrailingErrorMessages(messages: any[]): any[] {
-    if (!messages.length) {
-      return messages;
-    }
-
-    // Work backwards from the end, removing trailing system error messages
-    let endIndex = messages.length;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-
-      // Check if this is the specific network error from page refresh
-      if (message.role === 'system' && message.content === 'Error: network error') {
-        endIndex = i; // Mark for removal
-      } else {
-        // Stop when we hit a non-error message
-        break;
+  public async saveConversation(messages: Message[]): Promise<void> {
+    if (messages.length > 0) {
+      const threadId = this.getThreadId();
+      if (!threadId) {
+        throw new Error('Thread ID is required to save conversation');
       }
+      await this.conversationHistoryService.saveConversation(threadId, messages);
     }
-
-    // Return array without trailing error messages
-    return messages.slice(0, endIndex);
-  }
-
-  public saveCurrentChatStatePublic(): void {
-    this.saveCurrentChatState();
-  }
-
-  public getCurrentMessages(): Message[] {
-    return this.currentMessages;
-  }
-
-  public updateCurrentMessages(messages: Message[]): void {
-    this.currentMessages = messages;
-    this.saveCurrentChatState();
   }
 
   private clearDynamicContextFromStore(): void {
@@ -589,14 +576,167 @@ export class ChatService {
     }
     this.coreChatService.newThread();
 
-    this.currentMessages = [];
-    this.clearCurrentChatState();
-
     // Clear dynamic context from global store for fresh chat session
     this.clearDynamicContextFromStore();
 
     // Reset AgUiAgent connection state to clear any aborted controllers
     this.resetConnection();
+  }
+
+  /**
+   * Preprocess a conversation's event array before replay.
+   *
+   * Finds the MESSAGES_SNAPSHOT event and checks whether the last assistant message
+   * contains tool calls that have no corresponding tool result messages (i.e. the
+   * frontend tool execution never completed). When such "unfinished" tool calls are
+   * found the method:
+   *   1. Rewrites the MESSAGES_SNAPSHOT so the last assistant message only contains
+   *      the *finished* tool calls — giving the event handler a clean baseline.
+   *   2. Appends synthetic TOOL_CALL_START → TOOL_CALL_ARGS → TOOL_CALL_END events
+   *      for every unfinished tool call so the event handler re-executes them exactly
+   *      as if they had just arrived from the agent.
+   *
+   * If there are no unfinished tool calls the original array is returned unchanged.
+   */
+  private injectUnfinishedToolCallEvents(events: Event[]): Event[] {
+    const snapshotIndex = events.findIndex((e) => e.type === EventType.MESSAGES_SNAPSHOT);
+    if (snapshotIndex === -1) return events;
+
+    const snapshot = events[snapshotIndex] as MessagesSnapshotEvent;
+    const messages = snapshot.messages;
+    if (!messages || messages.length === 0) return events;
+
+    const lastMessage = messages[messages.length - 1];
+    if (
+      lastMessage.role !== 'assistant' ||
+      !('toolCalls' in lastMessage) ||
+      !lastMessage.toolCalls
+    ) {
+      return events;
+    }
+
+    const toolResultIds = new Set(
+      messages
+        .filter((m) => m.role === 'tool' && 'toolCallId' in m)
+        .map((m) => (m as any).toolCallId as string)
+    );
+
+    const assistantActionService = AssistantActionService.getInstance();
+
+    const unfinished = lastMessage.toolCalls.filter(
+      (tc) => assistantActionService.hasAction(tc.function.name) && !toolResultIds.has(tc.id)
+    );
+
+    if (unfinished.length === 0) return events;
+
+    const unfinishedIds = new Set(unfinished.map((tc) => tc.id));
+
+    // Rewrite the snapshot: strip unfinished tool calls from the last assistant message
+    const patchedLastMessage = {
+      ...lastMessage,
+      toolCalls: lastMessage.toolCalls.filter((tc) => !unfinishedIds.has(tc.id)),
+    };
+    const patchedSnapshot: MessagesSnapshotEvent = {
+      ...snapshot,
+      messages: [...messages.slice(0, -1), patchedLastMessage],
+    };
+
+    // Build synthetic tool call events for each unfinished tool call
+    const syntheticEvents: Event[] = [];
+    for (const toolCall of unfinished) {
+      syntheticEvents.push({
+        type: EventType.TOOL_CALL_START,
+        toolCallId: toolCall.id,
+        toolCallName: toolCall.function.name,
+        parentMessageId: lastMessage.id,
+        timestamp: Date.now(),
+      } as ToolCallStartEvent);
+
+      syntheticEvents.push({
+        type: EventType.TOOL_CALL_ARGS,
+        toolCallId: toolCall.id,
+        delta: toolCall.function.arguments,
+        timestamp: Date.now(),
+      } as ToolCallArgsEvent);
+
+      syntheticEvents.push({
+        type: EventType.TOOL_CALL_END,
+        toolCallId: toolCall.id,
+        timestamp: Date.now(),
+      } as ToolCallEndEvent);
+    }
+
+    // Return: events before snapshot + patched snapshot + events after snapshot + synthetic events
+    return [
+      ...events.slice(0, snapshotIndex),
+      patchedSnapshot,
+      ...events.slice(snapshotIndex + 1),
+      ...syntheticEvents,
+    ];
+  }
+
+  /**
+   * Restore the latest conversation from agentic memory.
+   * Returns the AG-UI event array (with unfinished tool calls injected) for replay,
+   * or null if no conversation exists or a thread is already active.
+   */
+  public async restoreLatestConversation(): Promise<Event[] | null> {
+    // Check if thread ID is already set - if so, skip restore and use existing thread
+    const currentThreadId = this.coreChatService?.getThreadId();
+    if (currentThreadId) {
+      // Thread already set, don't restore from latest conversation
+      return null;
+    }
+
+    // Get the latest conversation summary from conversation history service
+    const result = await this.conversationHistoryService.getConversations({
+      page: 0,
+      pageSize: 1,
+    });
+
+    if (result.conversations.length > 0) {
+      // Found a latest conversation - get full details
+      const latestConversationSummary = result.conversations[0];
+      // Get the full conversation with all events
+      const events = await this.conversationHistoryService.getConversation(
+        latestConversationSummary.threadId
+      );
+
+      if (!events) {
+        // No events found, generate a new thread
+        this.newThread();
+        return null;
+      }
+
+      // Set the thread ID in core service
+      if (this.coreChatService) {
+        this.coreChatService.setThreadId(latestConversationSummary.threadId);
+      }
+
+      return this.injectUnfinishedToolCallEvents(events);
+    }
+
+    // No conversation found, generate a new thread
+    this.newThread();
+    return null;
+  }
+
+  /**
+   * Load a specific conversation from history by thread ID.
+   * Returns the AG-UI event array (with unfinished tool calls injected) for replay.
+   */
+  public async loadConversation(threadId: string): Promise<Event[] | null> {
+    const events = await this.conversationHistoryService.getConversation(threadId);
+    if (!events) {
+      return null;
+    }
+
+    // Set the thread ID in core service
+    if (this.coreChatService) {
+      this.coreChatService.setThreadId(threadId);
+    }
+
+    return this.injectUnfinishedToolCallEvents(events);
   }
 
   /**
